@@ -16,11 +16,12 @@ let TestResult = Object.freeze({
  */
 let tests = [
     async function testListServices() {
-        await DockerModule.listServices();
+        let services = await DockerModule.listServices();
+        console.log('Services:', services);
         return TestResult.MANUALLY_VERIFY;
     },
     async function testIsServiceUp() {
-        let serviceName = 'example_service'; // replace with an actual service name for real testing
+        let serviceName = 'example_service'; 
         let isUp = await DockerModule.isServiceUp(serviceName);
         console.log(`Service ${serviceName} is up: ${isUp}`);
         return TestResult.MANUALLY_VERIFY;

@@ -67,14 +67,9 @@ async function isServiceUp(serviceName) {
  * @returns {Promise<Array<string>>}
  */
 async function listServices() {
-    fs.readdir(containerDir, (err, files) => {
-        if (err) {
-            console.error('Error reading container directory:', err);
-            return;
-        }
-        const services = files.filter(file => fs.statSync(path.join(containerDir, file)).isDirectory());
-        return services;
-    });
+    let files = await fs.promises.readdir(containerDir);
+    const services = files.filter(file => fs.statSync(path.join(containerDir, file)).isDirectory());
+    return services;
 
 }
 
