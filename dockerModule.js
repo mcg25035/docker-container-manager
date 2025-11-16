@@ -4,6 +4,12 @@ const execAsync = promisify(exec);
 const path = require('path');
 const fs = require('fs');
 
+const containerDir = process.env.container_dir;
+
+if (!containerDir) {
+    console.error('Error: Environment variable container_dir is not set (please check the .env file)');
+}
+
 /**
  * @param {string} serviceName 
  * @returns {Promise<boolean>}
