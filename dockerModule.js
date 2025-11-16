@@ -75,4 +75,5 @@ async function listServices() {
 
 module.exports = {
     isServiceUp,
+    listServices
 };
