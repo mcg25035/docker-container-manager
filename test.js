@@ -25,7 +25,20 @@ let tests = [
         let isUp = await DockerModule.isServiceUp(serviceName);
         console.log(`Service ${serviceName} is up: ${isUp}`);
         return TestResult.MANUALLY_VERIFY;
-    }
+    },
+    async function testGetServicesConfig() {
+        let service = [
+            'filebrowser',
+            'rc-web-app',
+            'rc-backend-dev',
+        ]
+
+        for (let svc of service) {
+            let config = await DockerModule.getServiceConfig(svc);
+            console.log(`Config for ${svc}:`, config);
+        }
+        return TestResult.MANUALLY_VERIFY;
+    },
 ]
 
 

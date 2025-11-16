@@ -3,11 +3,25 @@ const { promisify } = require('util');
 const execAsync = promisify(exec);
 const path = require('path');
 const fs = require('fs');
+const EnvUtils = require('./utils/envUtils');
 
 const containerDir = process.env.container_dir;
 
 if (!containerDir) {
     console.error('Error: Environment variable container_dir is not set (please check the .env file)');
+}
+
+
+/**
+ * @param {string} serviceName 
+ * @returns {Promise<boolean>}
+ */
+async function checkServiceExists(serviceName) {
+    if (!(await listServices()).includes(serviceName)) {
+        console.error(`Error: Service "${serviceName}" not found in the list of services.`);
+        return false;
+    }
+    return true;
 }
 
 /**
@@ -21,10 +35,7 @@ async function isServiceUp(serviceName) {
         return false;
     }
 
-    if (!(await listServices()).includes(serviceName)) {
-        console.error(`Error: Service "${serviceName}" not found in the list of services.`);
-        return false;
-    }
+    if (!(await checkServiceExists(serviceName))) return false;
 
     const containerDir = process.env.container_dir;
 
@@ -73,6 +84,32 @@ async function listServices() {
 
 }
 
+
+/**
+ * @param {string} serviceName
+ * @returns {Promise<Object>}
+ * 
+ */
+async function getServiceConfig(serviceName) {
+    
+    if (!(await checkServiceExists(serviceName))) return {};
+
+    let envPath = path.join(containerDir, serviceName, '.env'); 
+    if (!fs.existsSync(envPath)) {
+        console.error(`Error: .env file not found for service "${serviceName}"`);
+        return {};
+    }
+
+
+    try{
+        return await EnvUtils.loadFromPath(envPath);
+    } catch (error) {
+        console.error(`Error loading .env for service "${serviceName}": ${error.message}`);
+        return {};
+    }
+    
+}
+
 /**
  * @typedef {Object} ServiceMetadata
  * 
@@ -91,5 +128,6 @@ async function readServiceMetadata(serviceName) {
 module.exports = {
     isServiceUp,
     listServices,
-    readServiceMetadata
+    readServiceMetadata,
+    getServiceConfig,
 };
