@@ -94,20 +94,21 @@ async function getServiceConfig(serviceName) {
     
     if (!(await checkServiceExists(serviceName))) return {};
 
+    let result = {};
+
     let envPath = path.join(containerDir, serviceName, '.env'); 
     if (!fs.existsSync(envPath)) {
         console.error(`Error: .env file not found for service "${serviceName}"`);
-        return {};
+    }
+    else {
+        try{
+            result = {...result, ...(await EnvUtils.loadFromPath(envPath))};
+        } catch (error) {
+            console.error(`Error loading .env for service "${serviceName}": ${error.message}`);
+        }
     }
 
-
-    try{
-        return await EnvUtils.loadFromPath(envPath);
-    } catch (error) {
-        console.error(`Error loading .env for service "${serviceName}": ${error.message}`);
-        return {};
-    }
-    
+    return result;
 }
 
 /**
