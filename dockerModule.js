@@ -73,8 +73,23 @@ async function listServices() {
 
 }
 
+/**
+ * @typedef {Object} ServiceMetadata
+ * 
+ */
+
+/**
+ * implement in future
+ * @param {string} serviceName 
+ * @return {Promise<ServiceMetadata>}
+ */
+async function readServiceMetadata(serviceName) {
+    console.error('readServiceMetadata not implemented yet');
+    return {};
+}
 
 module.exports = {
     isServiceUp,
-    listServices
+    listServices,
+    readServiceMetadata
 };
