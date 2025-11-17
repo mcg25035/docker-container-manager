@@ -131,10 +131,4 @@ networks:
 // --- Example Usage ---
 
 
-
-// // Generate 'external' configuration file (if you want to run this example, please comment out the call in the example above)
-// (async () => {
-//   await ConfigUtils.generateConfig(externalConfigData);
-// })();
-
 module.exports = ConfigUtils;

@@ -11,9 +11,9 @@ class DockerModule {
     #containerDir;
 
     constructor() {
-        this.#containerDir = process.env.container_dir;
+        this.#containerDir = process.env.CONTAINER_DIR;
         if (!this.#containerDir) {
-            throw new Error('Error: Environment variable container_dir is not set (please check the .env file)');
+            throw new Error('Error: Environment variable CONTAINER_DIR is not set (please check the .env file)');
         }
     }
 
