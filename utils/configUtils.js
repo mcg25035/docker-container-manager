@@ -37,7 +37,9 @@ class ConfigUtils {
     } = configData;
 
     // Define the different parts of the template
-    const baseTemplate = `version: '3.3'
+    const baseTemplate = `# this file is auto-generated. Do not edit directly.
+# DCM:0.1
+version: '3.3'
 
 services:
   ${service_name}:
@@ -109,6 +111,21 @@ networks:
       console.error('An error occurred while writing the file:', err);
     }
   }
+
+  /**
+   * Identifies the version of a configuration file based on its content.
+   * @param {string} filePath - The path to the configuration file.
+   * @returns {Promise<string|null>} - The version string if identified, otherwise null.
+   */
+  static async identifyConfigVersion(filePath) {
+        try {
+            const content = await fs.readFile(filePath, 'utf8');
+            const versionMatch = content.match(/# DCM:(\d+\.\d+)/);
+            return versionMatch ? versionMatch[1] : null;
+        } catch (error) {
+            throw new Error(`Failed to read config file: ${error.message}`);
+        }
+    }
 }
 
 // --- Example Usage ---

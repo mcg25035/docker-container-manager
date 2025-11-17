@@ -106,8 +106,12 @@ class DockerModule {
         }
         else {
             try {
+                
+                const version = await ConfigUtils.identifyConfigVersion(dockerYmlPath);
+
                 const YmlUtils = require('./utils/ymlUtils');
                 const ymlConfig = await YmlUtils.loadFromPath(dockerYmlPath);
+                ymlConfig['config_version'] = version;
                 result = {...result, dockerCompose: ymlConfig};
             }
             catch (error) {
