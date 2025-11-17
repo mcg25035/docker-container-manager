@@ -28,7 +28,7 @@ let tests = [
         return TestResult.MANUALLY_VERIFY;
     },
     async function testGetServicesConfig() {
-        let service = ["filebrowser", "rc-web-app", "rc-backend-dev"];
+        let service = ["test1", "test2", "rc-web-app", "rc-backend-dev"];
 
         for (let svc of service) {
             let config = await DockerModule.getServiceConfig(svc);
@@ -36,31 +36,31 @@ let tests = [
         }
         return TestResult.MANUALLY_VERIFY;
     },
-    async function testGenerateConfig() {
+    // async function testGenerateConfig() {
        
-        const internalConfigData = {
-            service_name: "my-internal-service",
-            network: {
-                type: "internal",
-            },
-            mappingDstIPv4: "172.30.0.1",
-            mappingSrcPort: "8080",
-            mappingDstPort: "8081",
-            internalNetSegment: "172.28",
-        };
+    //     const internalConfigData = {
+    //         service_name: "my-internal-service",
+    //         network: {
+    //             type: "internal",
+    //         },
+    //         mappingDstIPv4: "172.30.0.1",
+    //         mappingSrcPort: "8080",
+    //         mappingDstPort: "8081",
+    //         internalNetSegment: "172.28",
+    //     };
 
         
-        const externalConfigData = {
-            service_name: "my-external-service",
-            network: {
-                type: "external",
-            },
-            externalIPv4: "23.146.248.87",
-            externalIPv6: "2001:db8:0:1234::5678"
-        };
-        ConfigUtils.generateConfig(internalConfigData, "/docker/test1")
-        ConfigUtils.generateConfig(externalConfigData, "/docker/test2")
-    },
+    //     const externalConfigData = {
+    //         service_name: "my-external-service",
+    //         network: {
+    //             type: "external",
+    //         },
+    //         externalIPv4: "23.146.248.87",
+    //         externalIPv6: "2001:db8:0:1234::5678"
+    //     };
+    //     ConfigUtils.generateConfig(internalConfigData, "/docker/test1")
+    //     ConfigUtils.generateConfig(externalConfigData, "/docker/test2")
+    // },
 
     
 ];
