@@ -43,10 +43,10 @@ let tests = [
             network: {
                 type: "internal",
             },
-            internalIPv4: "192.168.1.100",
-            internalDstPort: "8080",
-            internalSrcPort: "3000",
-            internalNetSegment: "172.20",
+            mappingDstIPv4: "172.30.0.1",
+            mappingSrcPort: "8080",
+            mappingDstPort: "8081",
+            internalNetSegment: "172.28",
         };
 
         
@@ -55,11 +55,8 @@ let tests = [
             network: {
                 type: "external",
             },
-            env: {
-                hostIp: "10.0.0.1",
-            },
-            externalIPv4: "192.168.1.115",
-            externalIPv6: "2001:db8:0:1234::5678",
+            externalIPv4: "23.146.248.87",
+            externalIPv6: "2001:db8:0:1234::5678"
         };
         ConfigUtils.generateConfig(internalConfigData, "/docker/test1")
         ConfigUtils.generateConfig(externalConfigData, "/docker/test2")
