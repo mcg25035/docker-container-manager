@@ -4,6 +4,8 @@ const execAsync = promisify(exec);
 const path = require('path');
 const fs = require('fs');
 const EnvUtils = require('./utils/envUtils');
+const YmlUtils = require('./utils/ymlUtils');
+const ConfigUtils = require('./utils/configUtils');
 
 class DockerModule {
     #containerDir;
@@ -109,7 +111,7 @@ class DockerModule {
                 
                 const version = await ConfigUtils.identifyConfigVersion(dockerYmlPath);
 
-                const YmlUtils = require('./utils/ymlUtils');
+                
                 const ymlConfig = await YmlUtils.loadFromPath(dockerYmlPath);
                 ymlConfig['config_version'] = version;
                 result = {...result, dockerCompose: ymlConfig};
