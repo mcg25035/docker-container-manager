@@ -1,6 +1,9 @@
 const fs = require('fs').promises;
 const path = require('path');
 
+let hostIp = process.env.HOST_IP;
+if (!hostIp) throw new Error("Error: HOST_IP environment variable is not set.");
+
 class ConfigUtils {
   /**
    * @typedef {object} ConfigData
@@ -11,8 +14,6 @@ class ConfigUtils {
    * @property {string} [internalDstPort] - The destination port (for internal network).
    * @property {string} [internalSrcPort] - The source port (for internal network).
    * @property {string} [internalNetSegment] - The network segment (for internal network).
-   * @property {object} [env] - Environment variables (for external network).
-   * @property {string} [env.hostIp] - The host IP address (for external network).
    * @property {string} [externalIPv4] - The IPv4 address (for external network).
    * @property {string} [externalIPv6] - The IPv6 address (for external network).
    */
@@ -31,7 +32,6 @@ class ConfigUtils {
       internalDstPort: destPort,
       internalSrcPort: srcPort,
       internalNetSegment: net,
-      env,
       externalIPv4: ipv4,
       externalIPv6: ipv6
     } = configData;
@@ -77,7 +77,7 @@ networks:
 
     const externalNetworkTemplate = `
     extra_hosts:
-      - "host.docker.internal:${env.hostIp}"
+      - "host.docker.internal:${hostIp}"
     
     networks:
       ipvlan_net:
