@@ -7,8 +7,18 @@ const EnvUtils = require('./utils/envUtils');
 const YmlUtils = require('./utils/ymlUtils');
 const ConfigUtils = require('./utils/configUtils');
 
+let PowerAction = Object.freeze({
+    START: "START",
+    STOP: "STOP",
+    RESTART: "RESTART",
+});
+
+let processingPowerAction = new Set();
+
 class DockerModule {
     #containerDir;
+
+    PowerAction = PowerAction;
 
     constructor() {
         this.#containerDir = process.env.CONTAINER_DIR;
@@ -68,6 +78,61 @@ class DockerModule {
             }
             return false;
         }
+    }
+
+    /**
+     * @typedef {Object} PowerActionResult
+     * @property {boolean} success
+     * @property {string} message
+     * 
+     * @param {string} actionType
+     * @param {string} serviceName
+     * @returns {Promise<PowerActionResult>}
+     */
+    async powerAction(actionType, serviceName) {
+        if (!Object.values(PowerAction).includes(actionType)) {
+            console.error(`Error: Invalid actionType "${actionType}". Valid types are: ${Object.values(PowerAction).join(', ')}`);
+            return { success: false, message: 'Invalid action type' };
+        }
+
+        if (processingPowerAction.has(actionType)) {
+            console.error(`Error: Another ${actionType} action is already in progress.`);
+            return { success: false, message: `Another ${actionType} action is already in progress.` };
+        }
+
+        processingPowerAction.add(actionType);
+        
+        let result;
+        try {
+            let targetDir = path.join(this.#containerDir, serviceName);
+            let command = `cd $TARGET_DIR && docker-compose ${actionType.toLowerCase()}`;
+            
+            const { stdout, stderr } = await execAsync(command, {
+                env: {
+                    ...process.env,
+                    TARGET_DIR: targetDir,
+                },
+                shell: '/bin/bash',
+                encoding: 'utf-8',
+            });
+
+            if (stderr) {
+                console.error(`Stderr: ${stderr.toString()}`);
+            }
+
+            console.log(`Stdout: ${stdout.toString()}`);
+            result = { success: true, message: `${actionType} action completed successfully.` };
+
+        } catch (error) {
+            console.error(`Error occurred while executing ${actionType} on service "${serviceName}": ${error.message}`);
+            if (error.stderr) {
+                console.error(`Stderr: ${error.stderr.toString()}`);
+            }
+            result = { success: false, message: `Error during ${actionType}: ${error.message}` };
+        }
+
+        processingPowerAction.delete(actionType);
+        return result;
     }
 
     /**
