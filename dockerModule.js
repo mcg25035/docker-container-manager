@@ -100,6 +100,21 @@ class DockerModule {
             }
         }
 
+        let dockerYmlPath = path.join(this.#containerDir, serviceName, 'docker-compose.yml');
+        if (!fs.existsSync(dockerYmlPath)) {
+            console.error(`Error: docker-compose.yml file not found for service "${serviceName}"`);
+        }
+        else {
+            try {
+                const YmlUtils = require('./utils/ymlUtils');
+                const ymlConfig = await YmlUtils.loadFromPath(dockerYmlPath);
+                result = {...result, dockerCompose: ymlConfig};
+            }
+            catch (error) {
+                console.error(`Error loading docker-compose.yml for service "${serviceName}": ${error.message}`);
+            }
+        }
+
         return result;
     }
 
