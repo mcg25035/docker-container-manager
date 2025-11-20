@@ -225,7 +225,7 @@ class DockerModule {
         const tailOptions = {
             fromBeginning: false,
             follow: true,
-            useWatchFile: true,
+            useWatchFile: false,
         };
         
         const tailInstance = new tail(logFilePath, tailOptions);
