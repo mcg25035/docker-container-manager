@@ -61,10 +61,15 @@ const ServiceDetail: React.FC = () => {
     }
   }, [initialLogData]);
 
-  const envData = configData?.env.split('\n').map((line, index) => {
-    const [key, value] = line.split('=');
-    return { key: `${index}`, name: key, value };
-  });
+  const envData = configData?.env
+    .split('\n')
+    .filter(line => line.trim() !== '')
+    .map((line, index) => {
+      const parts = line.split('=');
+      const key = parts[0] || '';
+      const value = parts.slice(1).join('=') || '';
+      return { key: `env-${index}`, name: key, value: value };
+    });
 
   const columns = [
     { title: 'Key', dataIndex: 'name', key: 'name' },

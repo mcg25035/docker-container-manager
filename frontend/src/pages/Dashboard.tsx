@@ -35,7 +35,7 @@ const ServiceStatusIndicator: React.FC<{ serviceName: string }> = ({ serviceName
 const Dashboard: React.FC = () => {
   const queryClient = useQueryClient();
 
-  const { data: services, isLoading } = useQuery<Service[], Error>({
+  const { data: services, isLoading } = useQuery<string[], Error>({
     queryKey: ['services'],
     queryFn: getServices,
   });
@@ -61,21 +61,24 @@ const Dashboard: React.FC = () => {
       <List
         grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 4, xl: 4, xxl: 4 }}
         dataSource={services}
-        renderItem={(service) => (
+        renderItem={(serviceName) => (
           <List.Item>
             <Card
-              title={<Link to={`/service/${service.name}`}>{service.name}</Link>}
+              title={<Link to={`/service/${serviceName}`}>{serviceName}</Link>}
               actions={[
                 <Button
                   type="primary"
-                  onClick={() => mutate(service.name)}
-                  loading={isPending && variables === service.name}
+                  onClick={() => mutate(serviceName)}
+                  loading={isPending && variables === serviceName}
                 >
                   Quick Restart
                 </Button>,
+                <Button>
+                  <Link to={`/service/${serviceName}`}>View</Link>
+                </Button>,
               ]}
             >
-              <ServiceStatusIndicator serviceName={service.name} />
+              <ServiceStatusIndicator serviceName={serviceName} />
             </Card>
           </List.Item>
         )}
