@@ -237,6 +237,8 @@ class DockerModule {
             console.error(`Error while tailing log file "${logFileName}" for service "${serviceName}": ${error.message}`);
         });
 
+        tailInstance.watch();
+
         console.log(`Started monitoring log file "${logFileName}" for service "${serviceName}"`);
 
         return () => {
