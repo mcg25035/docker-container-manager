@@ -94,7 +94,30 @@ let tests = [
         console.log(`Lines:`, lines);
         return TestResult.MANUALLY_VERIFY;
     },
+    async function testSearchLogLinesByTimeRange() {
+        const serviceName = "rc-backend-prod";
+        // Please ensure this file contains logs for the target dates
+        const logFileName = "app.log"; 
+        
+        const startTime = "11/20/2025, 11:30:00 PM"; 
+        const endTime = "11/21/2025, 1:00:00 AM";
 
+        console.log(`🔎 Searching logs for ${serviceName} -> ${logFileName}`);
+        console.log(`   Range: ${startTime} ~ ${endTime}`);
+
+        const searchStart = Date.now();
+        const lines = await DockerModule.searchLogLinesByTimeRange(serviceName, logFileName, startTime, endTime);
+        const duration = Date.now() - searchStart;
+
+        console.log(`✅ Search completed in ${duration}ms. Found ${lines.length} lines.`);
+        
+        if (lines.length > 0) {
+            console.log(`[First Line]: ${lines[0]}`);
+            console.log(`[Last Line]:  ${lines[lines.length - 1]}`);
+        }
+        
+        return TestResult.MANUALLY_VERIFY;
+    }
     
 ];
 

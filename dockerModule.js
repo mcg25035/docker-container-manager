@@ -290,6 +290,227 @@ class DockerModule {
     }
 
     /**
+     * Efficiently search log file using Binary Search on file bytes.
+     * 
+     * @param {string} serviceName 
+     * @param {string} logFileName
+     * @param {string|Date} startTime
+     * @param {string|Date} endTime
+     * @return {Promise<string[]>}
+     */
+    async searchLogLinesByTimeRange(serviceName, logFileName, startTime, endTime) {
+        if (!(await this.#checkServiceExists(serviceName))) return [];
+
+        const logFilePath = path.join(this.#containerDir, serviceName, 'logs', logFileName);
+        if (!fs.existsSync(logFilePath)) {
+            console.error(`Error: Log file "${logFileName}" not found`);
+            return [];
+        }
+
+        const startTs = new Date(startTime).getTime();
+        const endTs = new Date(endTime).getTime();
+
+        if (isNaN(startTs) || isNaN(endTs)) {
+            console.error('Error: Invalid time format');
+            return [];
+        }
+
+        let fileHandle = null;
+        try {
+            // Open file in read mode
+            fileHandle = await fs.promises.open(logFilePath, 'r');
+            const stats = await fileHandle.stat();
+            const fileSize = stats.size;
+
+            // 1. Find byte offset for Start Time
+            const startOffset = await this.#findOffsetByTime(fileHandle, fileSize, startTs, true);
+            
+            // 2. Find byte offset for End Time (Search range starts from startOffset to save time)
+            // We search for endTs + 1ms to ensure we include the logs AT the end second
+            const endOffset = await this.#findOffsetByTime(fileHandle, fileSize, endTs + 1, false, startOffset);
+
+            // 3. Read only the specific range
+            const readLength = endOffset - startOffset;
+            if (readLength <= 0) return [];
+
+            const buffer = Buffer.alloc(readLength);
+            await fileHandle.read(buffer, 0, readLength, startOffset);
+            
+            // Convert buffer to string and split lines
+            const content = buffer.toString('utf-8');
+            const lines = content.split('\n');
+
+            // Filter out empty lines or partial lines at edges if necessary
+            // (The binary search aligns to newlines, so usually the first line is clean, 
+            // but the last line might be the start of the next out-of-range log)
+            return lines.filter(line => line.trim().length > 0);
+
+        } catch (error) {
+            console.error(`Error searching logs: ${error.message}`);
+            return [];
+        } finally {
+            if (fileHandle) await fileHandle.close();
+        }
+    }
+
+    /**
+     * Performs binary search on file content to find the byte offset of a specific timestamp.
+     * 
+     * @param {fs.FileHandle} fileHandle
+     * @param {number} fileSize
+     * @param {number} targetTimeTs
+     * @param {boolean} findStart - If true, find first log >= time. If false, acts as upper bound.
+     * @param {number} minOffset - Optimization: don't search before this offset
+     * @return {Promise<number>} Byte offset
+     */
+    async #findOffsetByTime(fileHandle, fileSize, targetTimeTs, findStart, minOffset = 0) {
+        let low = minOffset;
+        let high = fileSize;
+        let resultOffset = fileSize;
+
+        // Buffer size for reading timestamps (enough to cover a full line's date part)
+        const CHUNK_SIZE = 256; 
+
+        while (low < high) {
+            // Calculate mid point
+            let mid = Math.floor((low + high) / 2);
+
+            // Adjust mid to find the start of a line
+            // We read a chunk around mid
+            const searchStart = Math.max(0, mid - CHUNK_SIZE);
+            const buffer = Buffer.alloc(CHUNK_SIZE * 2); // Read enough context
+            
+            const { bytesRead } = await fileHandle.read(buffer, 0, buffer.length, searchStart);
+            if (bytesRead === 0) break;
+
+            const chunkString = buffer.toString('utf-8', 0, bytesRead);
+            
+            // Find the first newline after our 'mid' point relative to the chunk
+            // If mid is 1000, searchStart might be 800. We want the first \n after offset 200 in buffer.
+            const relativeMid = mid - searchStart;
+            const newlineIndex = chunkString.indexOf('\n', relativeMid);
+
+            let lineStartOffset;
+            let logTimeTs = null;
+
+            if (newlineIndex !== -1) {
+                // The actual start of the next line in the file
+                lineStartOffset = searchStart + newlineIndex + 1;
+                
+                // Extract date from this line
+                // We need to read a bit more from this exact position to ensure we have the date string
+                logTimeTs = await this.#extractTimeAtOffset(fileHandle, lineStartOffset);
+            } else {
+                // No newline found forward? We might be at the very end of file or a huge line.
+                // For log files, this usually means end of file or check slightly earlier.
+                // Strategy: assume end of file for this search context
+                lineStartOffset = fileSize; 
+            }
+
+            // If we couldn't parse a time (e.g. stack trace line or EOF), 
+            // we need a strategy. Assuming logs are mostly time-ordered:
+            // If no time found, we scan forward linearly briefly until we find one.
+            if (logTimeTs === null && lineStartOffset < fileSize) {
+                const { nextTs, nextOffset } = await this.#scanForwardForTime(fileHandle, lineStartOffset, fileSize);
+                if (nextTs !== null) {
+                    logTimeTs = nextTs;
+                    lineStartOffset = nextOffset; // Adjust our pivot to this valid line
+                }
+            }
+
+            if (logTimeTs === null) {
+                // Still no time found (EOF or bad chunk), treat as "End of Search Space"
+                high = mid;
+                continue;
+            }
+
+            // Binary Search Comparison
+            if (logTimeTs >= targetTimeTs) {
+                // Determine if we should move left
+                resultOffset = lineStartOffset; // Potential candidate
+                high = mid; 
+            } else {
+                // Too early, move right
+                low = lineStartOffset; // Assuming strictly increasing, but +1 is safer to avoid stuck loops if lineStartOffset == mid
+                if (low <= mid) low = mid + 1;
+            }
+        }
+
+        return resultOffset;
+    }
+
+    /**
+     * Reads a small chunk at specific offset and tries to parse the date.
+     * Returns null if invalid format.
+     * @param {fs.FileHandle} fileHandle 
+     * @param {number} offset 
+     * @return {Promise<number|null>} Timestamp or null
+     */
+    async #extractTimeAtOffset(fileHandle, offset) {
+        const buffer = Buffer.alloc(100); // Date part is usually < 50 chars
+        const { bytesRead } = await fileHandle.read(buffer, 0, 100, offset);
+        if (bytesRead === 0) return null;
+
+        const lineStr = buffer.toString('utf-8');
+        
+        // Regex matching: "11/21/2025, 4:57:52 AM"
+        // Note: Added ^ to ensure match at start of line
+        const timeRegex = /^(\d{1,2}\/\d{1,2}\/\d{4}, \d{1,2}:\d{2}:\d{2} (?:AM|PM))/;
+        const match = lineStr.match(timeRegex);
+
+        if (match) {
+            const ts = new Date(match[1]).getTime();
+            return isNaN(ts) ? null : ts;
+        }
+        return null;
+    }
+
+    /**
+     * Helper: If we landed on a line without a timestamp (e.g. stack trace),
+     * scan forward line-by-line until we find a timestamp.
+     */
+    async #scanForwardForTime(fileHandle, startOffset, fileSize) {
+        let currentOffset = startOffset;
+        const buffer = Buffer.alloc(512); // Scan in 512 byte chunks
+
+        while (currentOffset < fileSize) {
+            const { bytesRead } = await fileHandle.read(buffer, 0, 512, currentOffset);
+            if (bytesRead === 0) break;
+            
+            const chunk = buffer.toString('utf-8', 0, bytesRead);
+            const lines = chunk.split('\n');
+            
+            let localOffset = 0;
+            // Start from index 0 because currentOffset is already aligned to a line start (ideally)
+            // checking all lines in this chunk
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                // Calculate absolute offset of this line
+                // Note: split removes \n, so we add +1 for calculation except for last part
+                
+                const timeRegex = /^(\d{1,2}\/\d{1,2}\/\d{4}, \d{1,2}:\d{2}:\d{2} (?:AM|PM))/;
+                const match = line.match(timeRegex);
+                
+                if (match) {
+                    const ts = new Date(match[1]).getTime();
+                    if (!isNaN(ts)) {
+                        return { nextTs: ts, nextOffset: currentOffset + localOffset };
+                    }
+                }
+
+                // Advance offset
+                localOffset += Buffer.byteLength(line) + 1; // +1 for newline
+            }
+            
+            // Move to next chunk, but be careful about split lines. 
+            // Simplified: Just jump forward. For strict correctness, readline is better, 
+            // but for "finding a nearby timestamp" this is acceptable.
+            currentOffset += 512;
+        }
+        return { nextTs: null, nextOffset: fileSize };
+    }
+
+    /**
      * implement in future
      * @param {string} serviceName 
      * @return {Promise<ServiceMetadata>}
@@ -298,6 +519,8 @@ class DockerModule {
         console.error('readServiceMetadata not implemented yet');
         return {};
     }
+
+    
 }
 
 module.exports = new DockerModule();
