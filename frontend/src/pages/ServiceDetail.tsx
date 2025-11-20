@@ -26,33 +26,32 @@ const ServiceDetail: React.FC = () => {
   const [liveLogs, setLiveLogs] = useState<string[]>([]);
   const [isLiveTailOn, setIsLiveTailOn] = useState(false);
   const [ws, setWs] = useState<WebSocket | null>(null);
-  const logContainerRef = useRef<HTMLDivElement>(null);
+  const logContainerRef = useRef<HTMLDivElement | null>(null);
   const userScrolledUpRef = useRef(false);
-
 
   const { data: statusData, isLoading: isStatusLoading } = useQuery<ServiceStatus, Error>({
     queryKey: ['serviceStatus', name],
     queryFn: () => getServiceStatus(name!),
-    enabled: !!name,
+    enabled: !!name, // FIX: Prevent query from running if name is undefined
     refetchInterval: isPolling ? 2000 : false,
   });
 
   const { data: configData, isLoading: isConfigLoading, error: configError } = useQuery<ServiceConfig, Error>({
     queryKey: ['serviceConfig', name],
     queryFn: () => getServiceConfig(name!),
-    enabled: !!name,
+    enabled: !!name, // FIX: Prevent query from running if name is undefined
   });
 
   const { data: logFilesData, isLoading: isLogFilesLoading } = useQuery<string[], Error>({
     queryKey: ['logFiles', name],
     queryFn: () => getLogFiles(name!),
-    enabled: !!name,
+    enabled: !!name, // FIX: Prevent query from running if name is undefined
   });
 
   const { data: initialLogData, isLoading: isInitialLogLoading } = useQuery<{ lines: string[], nextLine: number }, Error>({
     queryKey: ['logContent', name, selectedLogFile, 'initial'],
     queryFn: () => readLogFile(name!, selectedLogFile!, -100),
-    enabled: !!name && !!selectedLogFile,
+    enabled: !!name && !!selectedLogFile, // FIX: Prevent query from running if name or file is undefined
   });
 
   useEffect(() => {
@@ -220,7 +219,7 @@ const ServiceDetail: React.FC = () => {
           <Button onClick={() => handlePowerAction('down')} danger disabled={isPending} loading={isPending && variables === 'down'}>Down</Button>
         </div>
       </Card>
-      <Card title="Configuration">
+      <Card title="Configuration" style={{ marginBottom: 24 }}>
         {isConfigLoading ? (
           <Spin />
         ) : configError ? (
@@ -234,32 +233,6 @@ const ServiceDetail: React.FC = () => {
               <SyntaxHighlighter language="yaml">
                 {configData?.dockerCompose || ''}
               </SyntaxHighlighter>
-            </Tabs.TabPane>
-            <Tabs.TabPane tab="Time Travel" key="3">
-              <Form layout="inline" style={{ marginBottom: 16 }}>
-                <Form.Item label="Start Time">
-                  <DatePicker showTime onChange={(date) => setTimeRange(prev => [date ? date.toDate() : null, prev[1]])} />
-                </Form.Item>
-                <Form.Item label="End Time">
-                  <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date ? date.toDate() : null])} />
-                </Form.Item>
-                <Form.Item>
-                  <Button type="primary" onClick={handleTimeTravelSearch} loading={searchMutation.isPending} disabled={!selectedLogFile}>
-                    Search
-                  </Button>
-                </Form.Item>
-              </Form>
-              {searchMutation.isPending && <Spin />}
-              {searchMutation.error && <div style={{ color: 'red' }}>Error: {searchMutation.error.message}</div>}
-              {searchMutation.data && (
-                <div style={{ background: '#f0f2f5', padding: '8px', marginTop: '16px', maxHeight: '400px', overflowY: 'auto' }}>
-                  <pre>
-                    <code>
-                      {searchMutation.data.join('\n')}
-                    </code>
-                  </pre>
-                </div>
-              )}
             </Tabs.TabPane>
           </Tabs>
         )}
@@ -285,7 +258,33 @@ const ServiceDetail: React.FC = () => {
               )}
             </div>
           </Tabs.TabPane>
-          <Tabs.TabPane tab="Live Tail" key="2">
+          <Tabs.TabPane tab="Time Travel" key="2">
+            <Form layout="inline" style={{ marginBottom: 16 }}>
+              <Form.Item label="Start Time">
+                <DatePicker showTime onChange={(date) => setTimeRange(prev => [date ? date.toDate() : null, prev[1]])} />
+              </Form.Item>
+              <Form.Item label="End Time">
+                <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date ? date.toDate() : null])} />
+              </Form.Item>
+              <Form.Item>
+                <Button type="primary" onClick={handleTimeTravelSearch} loading={searchMutation.isPending} disabled={!selectedLogFile}>
+                  Search
+                </Button>
+              </Form.Item>
+            </Form>
+            {searchMutation.isPending && <Spin />}
+            {searchMutation.error && <div style={{ color: 'red' }}>Error: {searchMutation.error.message}</div>}
+            {searchMutation.data && (
+              <div style={{ background: '#f0f2f5', padding: '8px', marginTop: '16px', maxHeight: '400px', overflowY: 'auto' }}>
+                <pre>
+                  <code>
+                    {searchMutation.data.join('\n')}
+                  </code>
+                </pre>
+              </div>
+            )}
+          </Tabs.TabPane>
+          <Tabs.TabPane tab="Live Tail" key="3">
             <Switch
               checkedChildren="Stop Monitoring"
               unCheckedChildren="Start Monitoring"
