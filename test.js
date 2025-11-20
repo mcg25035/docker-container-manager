@@ -88,7 +88,7 @@ let tests = [
     },
     async function testGetLogLines() {
         const serviceName = "rc-backend-prod";
-        const logFileName = "app-2025-11-01_22-06-04.log.10";
+        const logFileName = "app-2025-11-01_22-06-04.log";
         console.log(`Reading last 10 lines from ${serviceName}/${logFileName}`);
         const lines = await DockerModule.getLogLines(serviceName, logFileName, -10, 10);
         console.log(`Lines:`, lines);
@@ -97,7 +97,7 @@ let tests = [
     async function testSearchLogLinesByTimeRange() {
         const serviceName = "rc-backend-prod";
         // Please ensure this file contains logs for the target dates
-        const logFileName = "app.log"; 
+        const logFileName = "app-2025-11-01_22-06-04.log"; 
         
         const startTime = "11/20/2025, 11:30:00 PM"; 
         const endTime = "11/21/2025, 1:00:00 AM";
