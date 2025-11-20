@@ -3,6 +3,7 @@ const { promisify } = require('util');
 const execAsync = promisify(exec);
 const path = require('path');
 const fs = require('fs');
+const tail = require('tail').Tail;
 const EnvUtils = require('./utils/envUtils');
 const YmlUtils = require('./utils/ymlUtils');
 const ConfigUtils = require('./utils/configUtils');
@@ -32,10 +33,15 @@ class DockerModule {
      * @returns {Promise<boolean>}
      */
     async #checkServiceExists(serviceName) {
-        if (!(await this.listServices()).includes(serviceName)) {
+        try{
+            if (!(await this.listServices()).includes(serviceName)) {
             console.error(`Error: Service "${serviceName}" not found in the list of services.`);
             return false;
         }
+        } catch (error) {
+            console.error(`Error checking service existence for "${serviceName}": ${error.message}`);
+            return false;
+        }        
         return true;
     }
 
@@ -73,9 +79,7 @@ class DockerModule {
 
         } catch (error) {
             console.error(`Error occurred while executing (Service: ${serviceName}): ${error.message}`);
-            if (error.stderr) {
-                console.error(`Stderr: ${error.stderr.toString()}`);
-            }
+            if (error.stderr) console.error(`Stderr: ${error.stderr.toString()}`);
             return false;
         }
     }
@@ -125,9 +129,7 @@ class DockerModule {
 
         } catch (error) {
             console.error(`Error occurred while executing ${actionType} on service "${serviceName}": ${error.message}`);
-            if (error.stderr) {
-                console.error(`Stderr: ${error.stderr.toString()}`);
-            }
+            if (error.stderr) console.error(`Stderr: ${error.stderr.toString()}`);
             result = { success: false, message: `Error during ${actionType}: ${error.message}` };
         }
 
@@ -147,7 +149,6 @@ class DockerModule {
     /**
      * @param {string} serviceName
      * @returns {Promise<Object>}
-     * 
      */
     async getServiceConfig(serviceName) {
         
@@ -190,9 +191,101 @@ class DockerModule {
     }
 
     /**
-     * @typedef {Object} ServiceMetadata
-     * 
+     * @param {string} serviceName 
+     * @returns {Promise<Array<string>>}
      */
+    async getServiceLogs(serviceName) {
+        if (!(await this.#checkServiceExists(serviceName))) return [];
+
+        let targetDir = path.join(this.#containerDir, serviceName, 'logs');
+        if (!fs.existsSync(targetDir)) return [];
+
+        let logFiles = await fs.promises.readdir(targetDir);
+        logFiles = logFiles.filter(file => fs.statSync(path.join(targetDir, file)).isFile());
+        return logFiles;
+    }
+
+    /**
+     * @typedef {()=>void} StopMonitorFunction
+     * 
+     * @param {string} serviceName 
+     * @param {string} logFileName 
+     * @param {(line: string) => void} onLineCallback 
+     * @return {Promise<StopMonitorFunction>}
+     */
+    async monitorServiceLogs(serviceName, logFileName, onLineCallback) {
+        if (!(await this.#checkServiceExists(serviceName))) return () => {};
+
+        let logFilePath = path.join(this.#containerDir, serviceName, 'logs', logFileName);
+        if (!fs.existsSync(logFilePath)) {
+            console.error(`Error: Log file "${logFileName}" not found for service "${serviceName}"`);
+            return () => {};
+        }
+
+        const tailOptions = {
+            fromBeginning: false,
+            follow: true,
+            useWatchFile: true,
+        };
+        
+        const tailInstance = new tail(logFilePath, tailOptions);
+        tailInstance.on("line", function(line) {
+            onLineCallback(line);
+        });
+        
+        tailInstance.on("error", function(error) {
+            console.error(`Error while tailing log file "${logFileName}" for service "${serviceName}": ${error.message}`);
+        });
+
+        console.log(`Started monitoring log file "${logFileName}" for service "${serviceName}"`);
+
+        return () => {
+            tailInstance.unwatch();
+            console.log(`Stopped monitoring log file "${logFileName}" for service "${serviceName}"`);
+        }
+
+    }
+
+    /**
+     * @param {string} serviceName 
+     * @param {string} logFileName
+     * @param {number} startLine
+     * @param {number} numLines
+     * @return {Promise<string[]>}
+     */
+    async getLogLines(serviceName, logFileName, startLine, numLines) {
+        if (!(await this.#checkServiceExists(serviceName))) return [];
+        
+        let logFilePath = path.join(this.#containerDir, serviceName, 'logs', logFileName);
+        if (!fs.existsSync(logFilePath)) {
+            console.error(`Error: Log file "${logFileName}" not found for service "${serviceName}"`);
+            return [];
+        }
+
+        
+        
+        try {
+            const fileContent = await fs.promises.readFile(logFilePath, 'utf-8');
+            const lines = fileContent.split('\n');
+
+            if (startLine < 0) {
+                startLine = Math.max(0, lines.length + startLine);
+                startLine = Math.min(startLine, lines.length);
+            }
+
+            if (numLines <= 0) {
+                console.error(`Error: numLines must be greater than 0`);
+                return [];
+            }
+
+            const endLine = Math.min(startLine + numLines, lines.length);
+            let result = lines.slice(startLine, endLine);
+            return result;
+        } catch (error) {
+            console.error(`Error reading log file "${logFileName}" for service "${serviceName}": ${error.message}`);
+            return [];
+        }
+    }
 
     /**
      * implement in future

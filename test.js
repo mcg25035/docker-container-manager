@@ -62,6 +62,38 @@ let tests = [
         ConfigUtils.generateConfig(internalConfigData, "/docker/test1")
         ConfigUtils.generateConfig(externalConfigData, "/docker/test2")
     },
+    async function testGetServiceLogs() {
+        const serviceName = "rc-backend-prod";
+        console.log(`Fetching logs for service: ${serviceName}`);
+        const logs = await DockerModule.getServiceLogs(serviceName);
+        console.log(`Logs for ${serviceName}:`, logs);
+        return TestResult.MANUALLY_VERIFY;
+    },
+    async function testMonitorServiceLogs() {
+        const serviceName = "rc-backend-prod";
+        const logFileName = "app-2025-11-01_22-06-04.log.10";
+        
+        console.log(`Starting to monitor logs for ${serviceName} - ${logFileName}`);
+        
+        const stopMonitor = await DockerModule.monitorServiceLogs(serviceName, logFileName, (line) => {
+            console.log(`[NEW LINE]: ${line}`);
+        });
+
+        console.log("Monitoring for 5 seconds...");
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
+        stopMonitor();
+        console.log("Stopped monitoring.");
+        return TestResult.MANUALLY_VERIFY;
+    },
+    async function testGetLogLines() {
+        const serviceName = "rc-backend-prod";
+        const logFileName = "app-2025-11-01_22-06-04.log.10";
+        console.log(`Reading last 10 lines from ${serviceName}/${logFileName}`);
+        const lines = await DockerModule.getLogLines(serviceName, logFileName, -10, 10);
+        console.log(`Lines:`, lines);
+        return TestResult.MANUALLY_VERIFY;
+    },
 
     
 ];
