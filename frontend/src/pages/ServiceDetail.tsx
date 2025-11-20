@@ -164,9 +164,7 @@ const ServiceDetail: React.FC = () => {
         setIsLiveTailOn(false);
         return;
       }
-      const host = window.location.host;
-      const wsUrl = `ws://${host}/ws/logs/${name}?file=${selectedLogFile}`;
-      const newWs = new WebSocket(wsUrl);
+      const newWs = new WebSocket(`ws://${window.location.hostname}:3000/ws/logs/${name}?file=${selectedLogFile}`);
       newWs.onopen = () => {
         message.success('Live tail started.');
       };

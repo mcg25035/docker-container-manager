@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: 'http://localhost:3000/api',
+  baseURL: `http://${window.location.hostname}:3000/api`,
 });
 
 export const getServices = () => apiClient.get('/services').then(res => res.data);
