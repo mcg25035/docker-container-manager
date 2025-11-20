@@ -10,12 +10,12 @@ class ConfigUtils {
    * @property {string} service_name - The name of the service.
    * @property {object} network - Network configuration.
    * @property {'internal'|'external'} network.type - The type of network.
-   * @property {string} [mappingDstIPv4] - The IPv4 address for port mapping (for internal network).
-   * @property {string} [mappingDstPort] - The destination port for port mapping (for internal network).
-   * @property {string} [mappingSrcPort] - The source port for port mapping (for internal network).
-   * @property {string} [internalNetSegment] - The network segment (for internal network).
-   * @property {string} [externalIPv4] - The IPv4 address (for external network).
-   * @property {string} [externalIPv6] - The IPv6 address (for external network).
+   * @property {string} [network.mappingDstIPv4] - The IPv4 address for port mapping (for internal network).
+   * @property {string} [network.mappingDstPort] - The destination port for port mapping (for internal network).
+   * @property {string} [network.mappingSrcPort] - The source port for port mapping (for internal network).
+   * @property {string} [network.internalNetSegment] - The network segment (for internal network).
+   * @property {string} [network.externalIPv4] - The IPv4 address (for external network).
+   * @property {string} [network.externalIPv6] - The IPv6 address (for external network).
    */
 
   /**
@@ -28,12 +28,6 @@ class ConfigUtils {
     const {
       service_name,
       network,
-      mappingDstIPv4: IP,
-      mappingDstPort: destPort,
-      mappingSrcPort: srcPort,
-      internalNetSegment: net,
-      externalIPv4: ipv4,
-      externalIPv6: ipv6
     } = configData;
 
     // Define the different parts of the template
@@ -59,14 +53,14 @@ services:
 
     const internalNetworkTemplate = `
     ports:
-      - "${IP}:${destPort}:${srcPort}"
+      - "${network.mappingDstIPv4}:${network.mappingDstPort}:${network.mappingSrcPort}"
 
     extra_hosts:
-      - "host.docker.internal:${net}.0.1"
+      - "host.docker.internal:${network.internalNetSegment}.0.1"
 
     networks:
       ${service_name}_net:
-        ipv4_address: ${net}.0.114
+        ipv4_address: ${network.internalNetSegment}.0.114
         
 networks:
   ${service_name}_net:
@@ -74,7 +68,7 @@ networks:
     ipam:
       driver: default
       config:
-        - subnet: ${net}.0.0/16
+        - subnet: ${network.internalNetSegment}.0.0/16
 `;
 
     const externalNetworkTemplate = `
@@ -83,8 +77,8 @@ networks:
     
     networks:
       ipvlan_net:
-        ipv4_address: ${ipv4}
-        ipv6_address: ${ipv6}
+        ipv4_address: ${network.externalIPv4}
+        ipv6_address: ${network.externalIPv6}
 
 networks:
   ipvlan_net:
