@@ -236,12 +236,40 @@ const ServiceDetail: React.FC = () => {
 
   const statusText = isStatusLoading ? 'Loading...' : statusData?.status || 'Unknown';
   const statusType = statusData?.status === 'Up' ? 'success' : (statusData?.status === 'Down' ? 'error' : 'default');
+  const statusColors = {
+    success: 'rgba(82, 196, 26, 0.6)',
+    error: 'rgba(255, 77, 79, 0.6)',
+    default: 'rgba(0, 0, 0, 0.25)',
+  };
+  const statusDotColors = {
+    success: '#52c41a',
+    error: '#ff4d4f',
+    default: '#d9d9d9',
+  };
 
   return (
     <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', height: '100vh', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: 24 }}>
         <h1 style={{ margin: 0 }}>{name}</h1>
-        {isStatusLoading ? <Spin /> : <Badge status={statusType} text={statusText} />}
+        {isStatusLoading ? <Spin /> : (
+          <div style={{
+            backgroundColor: statusColors[statusType],
+            borderRadius: '12px',
+            padding: '4px 12px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}>
+            <span style={{
+              display: 'inline-block',
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: statusDotColors[statusType],
+            }} />
+            <span style={{ color: 'white', fontWeight: 'bold' }}>{statusText}</span>
+          </div>
+        )}
       </div>
       <div style={{ flexShrink: 0, overflowY: 'auto' }}>
         <Card title="Control Panel" style={{ marginBottom: 24 }}>
