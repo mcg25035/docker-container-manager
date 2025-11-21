@@ -142,8 +142,8 @@ const ServiceDetail: React.FC = () => {
   const handleTimeTravelSearch = () => {
     if (timeRange[0] && timeRange[1]) {
       searchMutation.mutate({
-        from: timeRange[0].format('YYYY-MM-DDTHH:mm:ss.SSS'),
-        to: timeRange[1].format('YYYY-MM-DDTHH:mm:ss.SSS'),
+        from: timeRange[0].format('MM/DD/YYYY, h:mm:ss A'),
+        to: timeRange[1].format('MM/DD/YYYY, h:mm:ss A'),
       });
     } else {
       message.warning('Please select both start and end times.');

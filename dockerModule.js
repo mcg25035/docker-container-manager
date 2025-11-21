@@ -130,18 +130,11 @@ class DockerModule {
         
         // Regex matching: "11/21/2025, 4:57:52 AM"
         // Note: Added ^ to ensure match at start of line
-        const timeRegex = /(\d{1,2}\/\d{1,2}\/\d{4}, \d{1,2}:\d{2}:\d{2} (?:AM|PM))|(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3})/;
+        const timeRegex = /^(\d{1,2}\/\d{1,2}\/\d{4}, \d{1,2}:\d{2}:\d{2} (?:AM|PM))/;
         const match = lineStr.match(timeRegex);
 
         if (match) {
-            const matchedDate = match[1] || match[2];
-            let ts = new Date(matchedDate).getTime();
-
-            if (match[1]) {
-                const localDate = new Date(matchedDate);
-                const tzOffset = localDate.getTimezoneOffset() * 60000;
-                ts = localDate.getTime() - tzOffset;
-            }
+            const ts = new Date(match[1]).getTime();
             return isNaN(ts) ? null : ts;
         }
         return null;
@@ -170,18 +163,11 @@ class DockerModule {
                 // Calculate absolute offset of this line
                 // Note: split removes \n, so we add +1 for calculation except for last part
                 
-                const timeRegex = /(\d{1,2}\/\d{1,2}\/\d{4}, \d{1,2}:\d{2}:\d{2} (?:AM|PM))|(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3})/;
+                const timeRegex = /^(\d{1,2}\/\d{1,2}\/\d{4}, \d{1,2}:\d{2}:\d{2} (?:AM|PM))/;
                 const match = line.match(timeRegex);
                 
                 if (match) {
-                    const matchedDate = match[1] || match[2];
-                    let ts = new Date(matchedDate).getTime();
-                    
-                    if (match[1]) {
-                        const localDate = new Date(matchedDate);
-                        const tzOffset = localDate.getTimezoneOffset() * 60000;
-                        ts = localDate.getTime() - tzOffset;
-                    }
+                    const ts = new Date(match[1]).getTime();
                     if (!isNaN(ts)) {
                         return { nextTs: ts, nextOffset: currentOffset + localOffset };
                     }
