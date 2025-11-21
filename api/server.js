@@ -106,7 +106,9 @@ app.use(express.static(frontendDist));
 
 // For any other request (that's not a static file or API route),
 // serve the index.html file for client-side routing.
-app.get('*', (req, res) => {
+// The catch-all route for the SPA.
+// It must be defined after all API routes and static file serving.
+app.get(/^(?!\/api|\/ws).*/, (req, res) => {
     res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
