@@ -104,15 +104,67 @@ const server = app.listen(port, () => {
     console.log(`API server listening at http://localhost:${port}`);
 });
 
-const wss = new WebSocket.Server({ noServer: true });
+const logWss = new WebSocket.Server({ noServer: true });
+const statusWss = new WebSocket.Server({ noServer: true });
+
+let serviceStatusState = {};
+let statusUpdateInterval = null;
+
+const broadcastStatusUpdates = async () => {
+    try {
+        const services = await DockerModule.listServices();
+        const statusPromises = services.map(async (service) => {
+            const isUp = await DockerModule.isServiceUp(service);
+            return { name: service, status: isUp ? 'Up' : 'Down' };
+        });
+        const statuses = await Promise.all(statusPromises);
+
+        statuses.forEach(({ name, status }) => {
+            if (serviceStatusState[name] !== status) {
+                serviceStatusState[name] = status;
+                const payload = JSON.stringify({ serviceName: name, status });
+                statusWss.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(payload);
+                    }
+                });
+            }
+        });
+    } catch (error) {
+        console.error('Failed to broadcast service status updates:', error);
+    }
+};
+
+statusWss.on('connection', (ws) => {
+    console.log('Client connected for status updates.');
+    // Send current state immediately
+    Object.entries(serviceStatusState).forEach(([name, status]) => {
+        ws.send(JSON.stringify({ serviceName: name, status }));
+    });
+
+    if (!statusUpdateInterval) {
+        console.log('Starting status update polling.');
+        broadcastStatusUpdates(); // Initial broadcast
+        statusUpdateInterval = setInterval(broadcastStatusUpdates, 2000); // Poll every 2 seconds
+    }
+
+    ws.on('close', () => {
+        console.log('Client disconnected from status updates.');
+        if (statusWss.clients.size === 0) {
+            console.log('No clients connected, stopping status polling.');
+            clearInterval(statusUpdateInterval);
+            statusUpdateInterval = null;
+        }
+    });
+});
 
 server.on('upgrade', (request, socket, head) => {
     const { pathname, query } = url.parse(request.url, true);
-    const match = pathname.match(/^\/ws\/logs\/(.+)$/);
+    const logMatch = pathname.match(/^\/ws\/logs\/(.+)$/);
 
-    if (match) {
-        wss.handleUpgrade(request, socket, head, async(ws) => {
-            const serviceName = match[1];
+    if (logMatch) {
+        logWss.handleUpgrade(request, socket, head, async(ws) => {
+            const serviceName = logMatch[1];
             const file = query.file;
             const search = query.search || '';
             
@@ -136,6 +188,10 @@ server.on('upgrade', (request, socket, head) => {
                 console.error('WebSocket error:', error);
                 unwatch();
             });
+        });
+    } else if (pathname === '/ws/status') {
+        statusWss.handleUpgrade(request, socket, head, (ws) => {
+            statusWss.emit('connection', ws, request);
         });
     } else {
         socket.destroy();
