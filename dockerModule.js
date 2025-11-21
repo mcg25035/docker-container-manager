@@ -212,35 +212,30 @@ class DockerModule {
      * @returns {Promise<boolean>}
      */
     async isServiceUp(serviceName) {
-
         if (!serviceName) {
             console.error('Error: serviceName parameter is required');
             return false;
         }
 
+        
         if (!(await this.#checkServiceExists(serviceName))) return false;
-
-        const command = 'cd "$TARGET_DIR" && docker-compose ps';
-        const targetDir = path.join(this.#containerDir, serviceName);
+        const command = `docker ps -q --filter "label=com.docker.compose.project=${serviceName}" --filter "status=running"`;
 
         try {
             const { stdout, stderr } = await execAsync(command, {
-                env: {
-                    ...process.env,
-                    TARGET_DIR: targetDir,
-                },
+                env: process.env, 
                 shell: '/bin/bash',
                 encoding: 'utf-8',
             });
 
             if (stderr) {
-                console.error(`Stderr: ${stderr.toString()}`);
+                console.error(`Stderr checking service ${serviceName}: ${stderr.toString()}`);
             }
 
-            return stdout.includes('Up');
+            return stdout.trim().length > 0;
 
         } catch (error) {
-            console.error(`Error occurred while executing (Service: ${serviceName}): ${error.message}`);
+            console.error(`Error occurred while checking status (Service: ${serviceName}): ${error.message}`);
             if (error.stderr) console.error(`Stderr: ${error.stderr.toString()}`);
             return false;
         }
