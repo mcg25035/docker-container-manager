@@ -9,6 +9,7 @@ require("dotenv").config();
 
 const app = express();
 const port = process.env.PORT || 3000;
+const apiAddr = process.env.API_ADDR || 'localhost';
 
 // Middleware
 app.use(cors());
@@ -113,8 +114,8 @@ app.get(/^(?!\/api|\/ws).*/, (req, res) => {
 });
 
 function startServer() {
-    const server = app.listen(port, () => {
-        console.log(`API server listening at http://localhost:${port}`);
+    const server = app.listen(port, apiAddr, () => {
+        console.log(`API server listening at http://${apiAddr}:${port}`);
     });
 
     const wss = new WebSocket.Server({ noServer: true });
