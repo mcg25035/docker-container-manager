@@ -133,6 +133,8 @@ const broadcastStatusUpdates = async () => {
     }
 };
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 const initializeStatusesAndStartPolling = async () => {
     console.log('Initializing statuses and starting polling...');
     // Initial fetch, sequentially
@@ -140,6 +142,7 @@ const initializeStatusesAndStartPolling = async () => {
         const services = await DockerModule.listServices();
         for (const service of services) {
             const isUp = await DockerModule.isServiceUp(service);
+            await sleep(100); 
             serviceStatusState[service] = isUp ? 'Up' : 'Down';
         }
         console.log('Initial service statuses loaded:', serviceStatusState);
