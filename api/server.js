@@ -74,6 +74,17 @@ app.get('/api/services/:name/logs/files', async (req, res) => {
     }
 });
 
+// GET /api/services/:name/logs/read - Read lines from a log file
+app.get('/api/services/:name/logs/read', async (req, res) => {
+    try {
+        const { name } = req.params;
+        const { file, start, num } = req.query;
+        const lines = await DockerModule.getLogLines(name, file, parseInt(start, 10), parseInt(num, 10));
+        res.json(lines);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // POST /api/services/:name/logs/search - Search log files by time range
 app.post('/api/services/:name/logs/search', async (req, res) => {
