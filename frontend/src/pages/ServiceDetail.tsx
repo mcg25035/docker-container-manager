@@ -284,67 +284,66 @@ const ServiceDetail: React.FC = () => {
             />
           )}
         </Card>
-      </div>
-
-      <Card
-        title="Console"
-        style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
-        bodyStyle={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px' }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <Select
-              style={{ width: 200 }}
-              placeholder="Select a log file"
-              onChange={(value) => {
-                setSelectedLogFile(value);
-                setConsoleLogs([]);
-                setTimeTravelTotal(0);
-              }}
-              loading={isLogFilesLoading}
-              options={logFilesData?.map(file => ({ label: file, value: file }))}
-              value={selectedLogFile}
-            />
-            <DatePicker showTime onChange={(date) => setTimeRange(prev => [date ? date.toDate() : null, prev[1]])} placeholder="Start time" />
-            <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date ? date.toDate() : null])} placeholder="End time" />
-            <Button type="primary" onClick={handleTimeTravelSearch} loading={searchMutation.isPending} disabled={!selectedLogFile}>
-              Search
-            </Button>
-            <Button onClick={handleLoadMore} disabled={nextLineToFetch === null}>
-              Load More Previous
-            </Button>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <Form.Item label="Auto-update" style={{ marginBottom: 0 }}>
-              <Switch
-                checked={isAutoUpdateOn}
-                onChange={handleAutoUpdateToggle}
-                disabled={!selectedLogFile}
+        <Card
+          title="Console"
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: '60vh' }}
+          bodyStyle={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px' }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <Select
+                style={{ width: 200 }}
+                placeholder="Select a log file"
+                onChange={(value) => {
+                  setSelectedLogFile(value);
+                  setConsoleLogs([]);
+                  setTimeTravelTotal(0);
+                }}
+                loading={isLogFilesLoading}
+                options={logFilesData?.map(file => ({ label: file, value: file }))}
+                value={selectedLogFile}
               />
-            </Form.Item>
-            <Form.Item label="Auto-scroll" style={{ marginBottom: 0 }}>
-              <Switch
-                checked={isAutoScrollOn}
-                onChange={setIsAutoScrollOn}
-              />
-            </Form.Item>
+              <DatePicker showTime onChange={(date) => setTimeRange(prev => [date ? date.toDate() : null, prev[1]])} placeholder="Start time" />
+              <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date ? date.toDate() : null])} placeholder="End time" />
+              <Button type="primary" onClick={handleTimeTravelSearch} loading={searchMutation.isPending} disabled={!selectedLogFile}>
+                Search
+              </Button>
+              <Button onClick={handleLoadMore} disabled={nextLineToFetch === null}>
+                Load More Previous
+              </Button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <Form.Item label="Auto-update" style={{ marginBottom: 0 }}>
+                <Switch
+                  checked={isAutoUpdateOn}
+                  onChange={handleAutoUpdateToggle}
+                  disabled={!selectedLogFile}
+                />
+              </Form.Item>
+              <Form.Item label="Auto-scroll" style={{ marginBottom: 0 }}>
+                <Switch
+                  checked={isAutoScrollOn}
+                  onChange={setIsAutoScrollOn}
+                />
+              </Form.Item>
+            </div>
           </div>
-        </div>
 
-        <div ref={logContainerRef} onScroll={handleScroll} style={{ background: '#000', color: '#fff', padding: '8px', overflow: 'auto', flex: 1 }}>
-          {isInitialLogLoading ? <Spin /> : (
-            <pre style={{ margin: 0, fontFamily: 'monospace' }}>
-              {consoleLogs.join('\n')}
-            </pre>
+          <div ref={logContainerRef} onScroll={handleScroll} style={{ background: '#000', color: '#fff', padding: '8px', overflow: 'auto', flex: 1 }}>
+            {isInitialLogLoading ? <Spin /> : (
+              <pre style={{ margin: 0, fontFamily: 'monospace' }}>
+                {consoleLogs.join('\n')}
+              </pre>
+            )}
+            {searchMutation.isPending && <Spin />}
+          </div>
+          {consoleLogs.length > 0 && consoleLogs.length < timeTravelTotal && (
+            <Button onClick={handleTimeTravelLoadMore} style={{ marginTop: 8, flexShrink: 0 }} loading={searchMutation.isPending}>
+              Show More ({consoleLogs.length} / {timeTravelTotal})
+            </Button>
           )}
-          {searchMutation.isPending && <Spin />}
-        </div>
-        {consoleLogs.length > 0 && consoleLogs.length < timeTravelTotal && (
-          <Button onClick={handleTimeTravelLoadMore} style={{ marginTop: 8, flexShrink: 0 }} loading={searchMutation.isPending}>
-            Show More ({consoleLogs.length} / {timeTravelTotal})
-          </Button>
-        )}
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };
