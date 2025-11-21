@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Button, message, notification, Card, Spin, Badge, Tabs, Table, Select, DatePicker, Form, Switch } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getServiceStatus, powerAction, getServiceConfig, getLogFiles, readLogFile, searchLogLinesByTimeRange } from '../api/client';
+import type { SearchLogResult } from '../api/client';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import yaml from 'js-yaml';
 
@@ -27,6 +28,8 @@ const ServiceDetail: React.FC = () => {
   const [liveLogs, setLiveLogs] = useState<string[]>([]);
   const [isLiveTailOn, setIsLiveTailOn] = useState(false);
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [timeTravelLogs, setTimeTravelLogs] = useState<string[]>([]);
+  const [timeTravelTotal, setTimeTravelTotal] = useState<number>(0);
   const logContainerRef = useRef<HTMLDivElement | null>(null);
   const userScrolledUpRef = useRef(false);
 
@@ -123,15 +126,21 @@ const ServiceDetail: React.FC = () => {
     mutate(action);
   };
 
-  const searchMutation = useMutation<string[], Error, { from: string; to: string }>({
-    mutationFn: ({ from, to }) => {
+  const searchMutation = useMutation<SearchLogResult, Error, { from: string; to: string; offset: number }>({
+    mutationFn: ({ from, to, offset }) => {
       if (!name || !selectedLogFile) {
         throw new Error('Service name or log file not selected');
       }
-      return searchLogLinesByTimeRange(name, selectedLogFile, from, to);
+      return searchLogLinesByTimeRange(name, selectedLogFile, from, to, 1000, offset);
     },
-    onSuccess: () => {
-      message.success('Log search completed.');
+    onSuccess: (data, variables) => {
+      if (variables.offset === 0) {
+        setTimeTravelLogs(data.lines);
+      } else {
+        setTimeTravelLogs(prev => [...prev, ...data.lines]);
+      }
+      setTimeTravelTotal(data.total);
+      message.success(`Log search completed. Found ${data.total} lines.`);
     },
     onError: (error) => {
       message.error(`Failed to search logs: ${error.message}`);
@@ -140,12 +149,26 @@ const ServiceDetail: React.FC = () => {
 
   const handleTimeTravelSearch = () => {
     if (timeRange[0] && timeRange[1]) {
+      // Reset state for new search
+      setTimeTravelLogs([]);
+      setTimeTravelTotal(0);
       searchMutation.mutate({
         from: timeRange[0].toISOString(),
         to: timeRange[1].toISOString(),
+        offset: 0,
       });
     } else {
       message.warning('Please select both start and end times.');
+    }
+  };
+
+  const handleTimeTravelLoadMore = () => {
+    if (timeRange[0] && timeRange[1]) {
+      searchMutation.mutate({
+        from: timeRange[0].toISOString(),
+        to: timeRange[1].toISOString(),
+        offset: timeTravelLogs.length,
+      });
     }
   };
 
@@ -169,6 +192,7 @@ const ServiceDetail: React.FC = () => {
         setIsLiveTailOn(false);
         return;
       }
+      userScrolledUpRef.current = false;
       const newWs = new WebSocket(`ws://${window.location.hostname}:3000/ws/logs/${name}?file=${selectedLogFile}`);
       newWs.onopen = () => {
         message.success('Live tail started.');
@@ -301,14 +325,19 @@ const ServiceDetail: React.FC = () => {
                     </Form>
                     {searchMutation.isPending && <Spin />}
                     {searchMutation.error && <div style={{ color: 'red' }}>Error: {searchMutation.error.message}</div>}
-                    {searchMutation.data && (
+                    {timeTravelLogs.length > 0 && (
                       <div style={{ background: '#f0f2f5', padding: '8px', marginTop: '16px', maxHeight: '400px', overflowY: 'auto' }}>
                         <pre>
                           <code>
-                            {searchMutation.data.join('\n')}
+                            {timeTravelLogs.join('\n')}
                           </code>
                         </pre>
                       </div>
+                    )}
+                    {timeTravelLogs.length < timeTravelTotal && (
+                      <Button onClick={handleTimeTravelLoadMore} style={{ marginTop: 8 }} loading={searchMutation.isPending}>
+                        Show More ({timeTravelLogs.length} / {timeTravelTotal})
+                      </Button>
                     )}
                   </>
                 ),

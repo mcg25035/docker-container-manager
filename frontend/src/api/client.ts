@@ -15,5 +15,17 @@ export const getLogFiles = (name: string) => apiClient.get(`/services/${name}/lo
 export const readLogFile = (name: string, file: string, startLine: number) => 
   apiClient.get(`/services/${name}/logs/read`, { params: { file, start: startLine, num: 100 } }).then(res => res.data);
 
-export const searchLogLinesByTimeRange = (name: string, file: string, from: string, to: string) =>
-  apiClient.post(`/services/${name}/logs/search`, { file, from, to }).then(res => res.data);
+export interface SearchLogResult {
+  lines: string[];
+  total: number;
+}
+
+export const searchLogLinesByTimeRange = (
+  name: string,
+  file: string,
+  from: string,
+  to: string,
+  limit: number,
+  offset: number
+): Promise<SearchLogResult> =>
+  apiClient.post(`/services/${name}/logs/search`, { file, from, to, limit, offset }).then(res => res.data);

@@ -90,10 +90,10 @@ app.get('/api/services/:name/logs/read', async (req, res) => {
 app.post('/api/services/:name/logs/search', async (req, res) => {
     try {
         const { name } = req.params;
-        const { file, from, to } = req.body;
-        const lines = await DockerModule.searchLogLinesByTimeRange(name, file, from, to);
-        console.log(file, from, to, lines.length);
-        res.json(lines);
+        const { file, from, to, limit, offset } = req.body;
+        const result = await DockerModule.searchLogLinesByTimeRange(name, file, from, to, limit, offset);
+        console.log(file, from, to, result.lines.length);
+        res.json(result);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

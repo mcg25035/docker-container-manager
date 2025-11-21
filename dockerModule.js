@@ -458,52 +458,57 @@ class DockerModule {
      * @param {string} logFileName
      * @param {string|Date} startTime
      * @param {string|Date} endTime
-     * @return {Promise<string[]>}
+     * @param {number} [limit=1000] - The maximum number of lines to return.
+     * @param {number} [offset=0] - The starting offset for pagination.
+     * @return {Promise<{lines: string[], total: number}>}
      */
-    async searchLogLinesByTimeRange(serviceName, logFileName, startTime, endTime) {
-        if (!(await this.#checkServiceExists(serviceName))) return [];
+   async searchLogLinesByTimeRange(serviceName, logFileName, startTime, endTime, limit = 1000, offset = 0) {
+       if (!(await this.#checkServiceExists(serviceName))) return { lines: [], total: 0 };
 
-        const logFilePath = path.join(this.#containerDir, serviceName, 'logs', logFileName);
-        if (!fs.existsSync(logFilePath)) {
-            console.error(`Error: Log file "${logFileName}" not found`);
-            return [];
-        }
+       const logFilePath = path.join(this.#containerDir, serviceName, 'logs', logFileName);
+       if (!fs.existsSync(logFilePath)) {
+           console.error(`Error: Log file "${logFileName}" not found`);
+           return { lines: [], total: 0 };
+       }
 
-        const startTs = new Date(startTime).getTime();
-        const endTs = new Date(endTime).getTime();
+       const startTs = new Date(startTime).getTime();
+       const endTs = new Date(endTime).getTime();
 
-        if (isNaN(startTs) || isNaN(endTs)) {
-            console.error('Error: Invalid time format');
-            return [];
-        }
+       if (isNaN(startTs) || isNaN(endTs)) {
+           console.error('Error: Invalid time format');
+           return { lines: [], total: 0 };
+       }
 
-        let fileHandle = null;
-        try {
-            fileHandle = await fs.promises.open(logFilePath, 'r');
-            const stats = await fileHandle.stat();
-            const fileSize = stats.size;
+       let fileHandle = null;
+       try {
+           fileHandle = await fs.promises.open(logFilePath, 'r');
+           const stats = await fileHandle.stat();
+           const fileSize = stats.size;
 
-            const startOffset = await this.#findOffsetByTime(fileHandle, fileSize, startTs, true);
-            const endOffset = await this.#findOffsetByTime(fileHandle, fileSize, endTs + 1, false, startOffset);
+           const startOffset = await this.#findOffsetByTime(fileHandle, fileSize, startTs, true);
+           const endOffset = await this.#findOffsetByTime(fileHandle, fileSize, endTs + 1, false, startOffset);
 
-            const readLength = endOffset - startOffset;
-            if (readLength <= 0) return [];
+           const readLength = endOffset - startOffset;
+           if (readLength <= 0) return { lines: [], total: 0 };
 
-            const buffer = Buffer.alloc(readLength);
-            await fileHandle.read(buffer, 0, readLength, startOffset);
-            
-            const content = buffer.toString('utf-8');
-            const lines = content.split('\n');
+           const buffer = Buffer.alloc(readLength);
+           await fileHandle.read(buffer, 0, readLength, startOffset);
+           
+           const content = buffer.toString('utf-8');
+           const allLines = content.split('\n').filter(line => line.trim().length > 0);
 
-            return lines.filter(line => line.trim().length > 0);
+           const total = allLines.length;
+           const paginatedLines = allLines.slice(offset, offset + limit);
 
-        } catch (error) {
-            console.error(`Error searching logs: ${error.message}`);
-            return [];
-        } finally {
-            if (fileHandle) await fileHandle.close();
-        }
-    }
+           return { lines: paginatedLines, total: total };
+
+       } catch (error) {
+           console.error(`Error searching logs: ${error.message}`);
+           return { lines: [], total: 0 };
+       } finally {
+           if (fileHandle) await fileHandle.close();
+       }
+   }
 
     
 
