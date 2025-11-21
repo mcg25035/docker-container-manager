@@ -243,107 +243,108 @@ const ServiceDetail: React.FC = () => {
   const statusType = statusData?.status === 'Up' ? 'success' : (statusData?.status === 'Down' ? 'error' : 'default');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 48px)', padding: '24px', boxSizing: 'border-box' }}>
-        <h1>{name}</h1>
-        <div style={{ overflowY: 'auto', flexShrink: 0 }}>
-            <Card title="Current Status" style={{ marginBottom: 24 }}>
-                {isStatusLoading ? <Spin /> : <Badge status={statusType} text={statusText} />}
-            </Card>
-            <Card title="Control Panel" style={{ marginBottom: 24 }}>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <Button onClick={() => handlePowerAction('start')} disabled={isPending} loading={isPending && variables === 'start'}>Start</Button>
-                    <Button onClick={() => handlePowerAction('stop')} disabled={isPending} loading={isPending && variables === 'stop'}>Stop</Button>
-                    <Button onClick={() => handlePowerAction('restart')} disabled={isPending} loading={isPending && variables === 'restart'}>Restart</Button>
-                    <Button onClick={() => handlePowerAction('down')} danger disabled={isPending} loading={isPending && variables === 'down'}>Down</Button>
-                </div>
-            </Card>
-            <Card title="Configuration" style={{ marginBottom: 24 }}>
-                {isConfigLoading ? (
-                    <Spin />
-                ) : configError ? (
-                    <div>Error loading configuration: {configError.message}</div>
-                ) : (
-                    <Tabs
-                        defaultActiveKey="1"
-                        items={[
-                            {
-                                key: '1',
-                                label: 'Configurations',
-                                children: <Table dataSource={otherConfigs} columns={columns} pagination={false} />,
-                            },
-                            {
-                                key: '2',
-                                label: 'docker-compose.yml',
-                                children: (
-                                    <SyntaxHighlighter language="yaml">
-                                        {configData?.dockerCompose ? yaml.dump(configData.dockerCompose) : ''}
-                                    </SyntaxHighlighter>
-                                ),
-                            },
-                        ]}
-                    />
-                )}
-            </Card>
-        </div>
-        <Card
-            title="Console"
-            style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
-            bodyStyle={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', padding: '16px' }}
-        >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                    <Select
-                        style={{ width: 200 }}
-                        placeholder="Select a log file"
-                        onChange={(value) => {
-                            setSelectedLogFile(value);
-                            setConsoleLogs([]);
-                            setTimeTravelTotal(0);
-                        }}
-                        loading={isLogFilesLoading}
-                        options={logFilesData?.map(file => ({ label: file, value: file }))}
-                        value={selectedLogFile}
-                    />
-                    <DatePicker showTime onChange={(date) => setTimeRange(prev => [date ? date.toDate() : null, prev[1]])} placeholder="Start time" />
-                    <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date ? date.toDate() : null])} placeholder="End time" />
-                    <Button type="primary" onClick={handleTimeTravelSearch} loading={searchMutation.isPending} disabled={!selectedLogFile}>
-                        Search
-                    </Button>
-                    <Button onClick={handleLoadMore} disabled={nextLineToFetch === null}>
-                        Load More Previous
-                    </Button>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <Form.Item label="Auto-update" style={{ marginBottom: 0 }}>
-                        <Switch
-                            checked={isAutoUpdateOn}
-                            onChange={handleAutoUpdateToggle}
-                            disabled={!selectedLogFile}
-                        />
-                    </Form.Item>
-                    <Form.Item label="Auto-scroll" style={{ marginBottom: 0 }}>
-                        <Switch
-                            checked={isAutoScrollOn}
-                            onChange={setIsAutoScrollOn}
-                        />
-                    </Form.Item>
-                </div>
-            </div>
-
-            <div ref={logContainerRef} onScroll={handleScroll} style={{ background: '#000', color: '#fff', padding: '8px', overflow: 'auto', flex: 1 }}>
-                {isInitialLogLoading ? <Spin /> : (
-                    <pre style={{ margin: 0, fontFamily: 'monospace' }}>
-                        {consoleLogs.join('\n')}
-                    </pre>
-                )}
-                {searchMutation.isPending && <Spin />}
-            </div>
-            {consoleLogs.length > 0 && consoleLogs.length < timeTravelTotal && (
-                <Button onClick={handleTimeTravelLoadMore} style={{ marginTop: 8, flexShrink: 0 }} loading={searchMutation.isPending}>
-                    Show More ({consoleLogs.length} / {timeTravelTotal})
-                </Button>
-            )}
+    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', height: '100vh', boxSizing: 'border-box' }}>
+      <h1>{name}</h1>
+      <div style={{ flexShrink: 0, overflowY: 'auto' }}>
+        <Card title="Current Status" style={{ marginBottom: 24 }}>
+          {isStatusLoading ? <Spin /> : <Badge status={statusType} text={statusText} />}
         </Card>
+        <Card title="Control Panel" style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Button onClick={() => handlePowerAction('start')} disabled={isPending} loading={isPending && variables === 'start'}>Start</Button>
+            <Button onClick={() => handlePowerAction('stop')} disabled={isPending} loading={isPending && variables === 'stop'}>Stop</Button>
+            <Button onClick={() => handlePowerAction('restart')} disabled={isPending} loading={isPending && variables === 'restart'}>Restart</Button>
+            <Button onClick={() => handlePowerAction('down')} danger disabled={isPending} loading={isPending && variables === 'down'}>Down</Button>
+          </div>
+        </Card>
+        <Card title="Configuration" style={{ marginBottom: 24 }}>
+          {isConfigLoading ? (
+            <Spin />
+          ) : configError ? (
+            <div>Error loading configuration: {configError.message}</div>
+          ) : (
+            <Tabs
+              defaultActiveKey="1"
+              items={[
+                {
+                  key: '1',
+                  label: 'Configurations',
+                  children: <Table dataSource={otherConfigs} columns={columns} pagination={false} />,
+                },
+                {
+                  key: '2',
+                  label: 'docker-compose.yml',
+                  children: (
+                    <SyntaxHighlighter language="yaml">
+                      {configData?.dockerCompose ? yaml.dump(configData.dockerCompose) : ''}
+                    </SyntaxHighlighter>
+                  ),
+                },
+              ]}
+            />
+          )}
+        </Card>
+      </div>
+
+      <Card
+        title="Console"
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+        bodyStyle={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <Select
+              style={{ width: 200 }}
+              placeholder="Select a log file"
+              onChange={(value) => {
+                setSelectedLogFile(value);
+                setConsoleLogs([]);
+                setTimeTravelTotal(0);
+              }}
+              loading={isLogFilesLoading}
+              options={logFilesData?.map(file => ({ label: file, value: file }))}
+              value={selectedLogFile}
+            />
+            <DatePicker showTime onChange={(date) => setTimeRange(prev => [date ? date.toDate() : null, prev[1]])} placeholder="Start time" />
+            <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date ? date.toDate() : null])} placeholder="End time" />
+            <Button type="primary" onClick={handleTimeTravelSearch} loading={searchMutation.isPending} disabled={!selectedLogFile}>
+              Search
+            </Button>
+            <Button onClick={handleLoadMore} disabled={nextLineToFetch === null}>
+              Load More Previous
+            </Button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <Form.Item label="Auto-update" style={{ marginBottom: 0 }}>
+              <Switch
+                checked={isAutoUpdateOn}
+                onChange={handleAutoUpdateToggle}
+                disabled={!selectedLogFile}
+              />
+            </Form.Item>
+            <Form.Item label="Auto-scroll" style={{ marginBottom: 0 }}>
+              <Switch
+                checked={isAutoScrollOn}
+                onChange={setIsAutoScrollOn}
+              />
+            </Form.Item>
+          </div>
+        </div>
+
+        <div ref={logContainerRef} onScroll={handleScroll} style={{ background: '#000', color: '#fff', padding: '8px', overflow: 'auto', flex: 1 }}>
+          {isInitialLogLoading ? <Spin /> : (
+            <pre style={{ margin: 0, fontFamily: 'monospace' }}>
+              {consoleLogs.join('\n')}
+            </pre>
+          )}
+          {searchMutation.isPending && <Spin />}
+        </div>
+        {consoleLogs.length > 0 && consoleLogs.length < timeTravelTotal && (
+          <Button onClick={handleTimeTravelLoadMore} style={{ marginTop: 8, flexShrink: 0 }} loading={searchMutation.isPending}>
+            Show More ({consoleLogs.length} / {timeTravelTotal})
+          </Button>
+        )}
+      </Card>
     </div>
   );
 };
