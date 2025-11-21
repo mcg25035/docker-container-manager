@@ -473,22 +473,22 @@ class DockerModule {
            return { lines: [], total: 0 };
        }
 
-       const startTs = new Date(startTime).getTime();
-       const endTs = new Date(endTime).getTime();
+       const startTs = startTime ? new Date(startTime).getTime() : null;
+       const endTs = endTime ? new Date(endTime).getTime() : null;
 
-       if (isNaN(startTs) || isNaN(endTs)) {
+       if ((startTime && isNaN(startTs)) || (endTime && isNaN(endTs))) {
            console.error('Error: Invalid time format');
            return { lines: [], total: 0 };
        }
-
+ 
        let fileHandle = null;
        try {
            fileHandle = await fs.promises.open(logFilePath, 'r');
            const stats = await fileHandle.stat();
            const fileSize = stats.size;
-
-           const startOffset = await this.#findOffsetByTime(fileHandle, fileSize, startTs, true);
-           const endOffset = await this.#findOffsetByTime(fileHandle, fileSize, endTs + 1, false, startOffset);
+ 
+           const startOffset = startTs ? await this.#findOffsetByTime(fileHandle, fileSize, startTs, true) : 0;
+           const endOffset = endTs ? await this.#findOffsetByTime(fileHandle, fileSize, endTs + 1, false, startOffset) : fileSize;
 
            const readLength = endOffset - startOffset;
            if (readLength <= 0) return { lines: [], total: 0 };

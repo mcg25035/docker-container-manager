@@ -23,8 +23,8 @@ export interface SearchLogResult {
 export const searchLogLinesByTimeRange = (
   name: string,
   file: string,
-  from: string,
-  to: string,
+  from: string | null,
+  to: string | null,
   limit: number,
   offset: number,
   search: string,

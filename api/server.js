@@ -91,7 +91,7 @@ app.post('/api/services/:name/logs/search', async (req, res) => {
     try {
         const { name } = req.params;
         const { file, from, to, limit, offset, search } = req.body;
-        const result = await DockerModule.searchLogLinesByTimeRange(name, file, from, to, limit, offset, search);
+        const result = await DockerModule.searchLogLinesByTimeRange(name, file, from || null, to || null, limit, offset, search);
         console.log(file, from, to, result.lines.length);
         res.json(result);
     } catch (error) {

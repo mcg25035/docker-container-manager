@@ -126,7 +126,7 @@ const ServiceDetail: React.FC = () => {
     mutate(action);
   };
 
-  const searchMutation = useMutation<SearchLogResult, Error, { from: string; to: string; offset: number }>({
+  const searchMutation = useMutation<SearchLogResult, Error, { from: string | null; to: string | null; offset: number }>({
     mutationFn: ({ from, to, offset }) => {
       if (!name || !selectedLogFile) {
         throw new Error('Service name or log file not selected');
@@ -148,28 +148,22 @@ const ServiceDetail: React.FC = () => {
   });
 
   const handleTimeTravelSearch = () => {
-    if (timeRange[0] && timeRange[1]) {
-      // Reset state for new search
-      setConsoleLogs([]);
-      setTimeTravelTotal(0);
-      searchMutation.mutate({
-        from: timeRange[0].toISOString(),
-        to: timeRange[1].toISOString(),
-        offset: 0,
-      });
-    } else {
-      message.warning('Please select both start and end times.');
-    }
+    // Reset state for new search
+    setConsoleLogs([]);
+    setTimeTravelTotal(0);
+    searchMutation.mutate({
+      from: timeRange[0] ? timeRange[0].toISOString() : null,
+      to: timeRange[1] ? timeRange[1].toISOString() : null,
+      offset: 0,
+    });
   };
 
   const handleTimeTravelLoadMore = () => {
-    if (timeRange[0] && timeRange[1]) {
-      searchMutation.mutate({
-        from: timeRange[0].toISOString(),
-        to: timeRange[1].toISOString(),
-        offset: consoleLogs.length,
-      });
-    }
+    searchMutation.mutate({
+      from: timeRange[0] ? timeRange[0].toISOString() : null,
+      to: timeRange[1] ? timeRange[1].toISOString() : null,
+      offset: consoleLogs.length,
+    });
   };
 
   const handleLoadMore = async () => {
