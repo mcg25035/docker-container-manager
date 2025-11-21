@@ -13,7 +13,7 @@ export const powerAction = (name: string, action: 'start' | 'stop' | 'restart' |
 export const getLogFiles = (name: string) => apiClient.get(`/services/${name}/logs/files`).then(res => res.data);
 
 export const readLogFile = (name: string, file: string, startLine: number) => 
-  apiClient.get(`/services/${name}/logs/read`, { params: { file, startLine, num: 100 } }).then(res => res.data);
+  apiClient.get(`/services/${name}/logs/read`, { params: { file, start: startLine, num: 100 } }).then(res => res.data);
 
 export const searchLogLinesByTimeRange = (name: string, file: string, from: string, to: string) =>
   apiClient.post(`/services/${name}/logs/search`, { file, from, to }).then(res => res.data);
