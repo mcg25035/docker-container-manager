@@ -243,7 +243,7 @@ const ServiceDetail: React.FC = () => {
   const statusType = statusData?.status === 'Up' ? 'success' : (statusData?.status === 'Down' ? 'error' : 'default');
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 48px)', padding: '24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 48px)', padding: '24px', boxSizing: 'border-box' }}>
         <h1>{name}</h1>
         <div style={{ overflowY: 'auto', flexShrink: 0 }}>
             <Card title="Current Status" style={{ marginBottom: 24 }}>
