@@ -4,6 +4,7 @@ const execAsync = promisify(exec);
 const path = require('path');
 const fs = require('fs');
 const tail = require('tail').Tail;
+const moment = require('moment-timezone');
 const EnvUtils = require('./utils/envUtils');
 const YmlUtils = require('./utils/ymlUtils');
 const ConfigUtils = require('./utils/configUtils');
@@ -135,9 +136,8 @@ class DockerModule {
 
         if (match) {
             const dateString = match[1];
-            const parsedDate = new Date(dateString);
-            console.log(`[DEBUG] #extractTimeAtOffset: Original="${dateString}", Parsed as UTC ISO="${parsedDate.toISOString()}"`);
-            const ts = parsedDate.getTime();
+            const tz = moment.tz.guess();
+            const ts = moment.tz(dateString, "MM/DD/YYYY, hh:mm:ss A", tz).valueOf();
             return isNaN(ts) ? null : ts;
         }
         return null;
@@ -171,10 +171,9 @@ class DockerModule {
                 
                 if (match) {
                     const dateString = match[1];
-                    const parsedDate = new Date(dateString);
-                    console.log(`[DEBUG] #scanForwardForTime: Original="${dateString}", Parsed as UTC ISO="${parsedDate.toISOString()}"`);
-                    const ts = parsedDate.getTime();
-                    if (ts) {
+                    const tz = moment.tz.guess();
+                    const ts = moment.tz(dateString, "MM/DD/YYYY, hh:mm:ss A", tz).valueOf();
+                    if (!isNaN(ts)) {
                         return { nextTs: ts, nextOffset: currentOffset + localOffset };
                     }
                 }
