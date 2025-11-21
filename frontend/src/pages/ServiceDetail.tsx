@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Button, message, notification, Card, Spin, Badge, Tabs, Table, Select, DatePicker, Form, Switch } from 'antd';
+import { Button, message, notification, Card, Spin, Badge, Tabs, Table, Select, DatePicker, Form, Switch, Input } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getServiceStatus, powerAction, getServiceConfig, getLogFiles, readLogFile, searchLogLinesByTimeRange } from '../api/client';
 import type { SearchLogResult } from '../api/client';
@@ -28,6 +28,7 @@ const ServiceDetail: React.FC = () => {
   const [isAutoUpdateOn, setIsAutoUpdateOn] = useState(false);
   const [isAutoScrollOn, setIsAutoScrollOn] = useState(true);
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [timeTravelTotal, setTimeTravelTotal] = useState<number>(0);
   const logContainerRef = useRef<HTMLDivElement | null>(null);
   const ignoreScrollEventRef = useRef(false);
@@ -130,7 +131,7 @@ const ServiceDetail: React.FC = () => {
       if (!name || !selectedLogFile) {
         throw new Error('Service name or log file not selected');
       }
-      return searchLogLinesByTimeRange(name, selectedLogFile, from, to, 1000, offset);
+      return searchLogLinesByTimeRange(name, selectedLogFile, from, to, 1000, offset, searchTerm);
     },
     onSuccess: (data, variables) => {
       if (variables.offset === 0) {
@@ -191,7 +192,7 @@ const ServiceDetail: React.FC = () => {
         setIsAutoUpdateOn(false);
         return;
       }
-      const newWs = new WebSocket(`ws://${window.location.hostname}:3000/ws/logs/${name}?file=${selectedLogFile}`);
+      const newWs = new WebSocket(`ws://${window.location.hostname}:3000/ws/logs/${name}?file=${selectedLogFile}&search=${encodeURIComponent(searchTerm)}`);
       newWs.onopen = () => {
         message.success('Auto-update started.');
       };
@@ -305,6 +306,13 @@ const ServiceDetail: React.FC = () => {
               />
               <DatePicker showTime onChange={(date) => setTimeRange(prev => [date ? date.toDate() : null, prev[1]])} placeholder="Start time" />
               <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date ? date.toDate() : null])} placeholder="End time" />
+              <Input
+                placeholder="Search logs"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{ width: 200 }}
+                onPressEnter={handleTimeTravelSearch}
+              />
               <Button type="primary" onClick={handleTimeTravelSearch} loading={searchMutation.isPending} disabled={!selectedLogFile}>
                 Search
               </Button>

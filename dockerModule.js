@@ -375,7 +375,7 @@ class DockerModule {
      * @param {(line: string) => void} onLineCallback 
      * @return {Promise<StopMonitorFunction>}
      */
-    async monitorServiceLogs(serviceName, logFileName, onLineCallback) {
+    async monitorServiceLogs(serviceName, logFileName, onLineCallback, search = '') {
         if (!(await this.#checkServiceExists(serviceName))) return () => {};
 
         let logFilePath = path.join(this.#containerDir, serviceName, 'logs', logFileName);
@@ -392,7 +392,9 @@ class DockerModule {
         
         const tailInstance = new tail(logFilePath, tailOptions);
         tailInstance.on("line", function(line) {
-            onLineCallback(line);
+            if (!search || line.includes(search)) {
+                onLineCallback(line);
+            }
         });
         
         tailInstance.on("error", function(error) {
@@ -462,7 +464,7 @@ class DockerModule {
      * @param {number} [offset=0] - The starting offset for pagination.
      * @return {Promise<{lines: string[], total: number}>}
      */
-   async searchLogLinesByTimeRange(serviceName, logFileName, startTime, endTime, limit = 1000, offset = 0) {
+   async searchLogLinesByTimeRange(serviceName, logFileName, startTime, endTime, limit = 1000, offset = 0, search = '') {
        if (!(await this.#checkServiceExists(serviceName))) return { lines: [], total: 0 };
 
        const logFilePath = path.join(this.#containerDir, serviceName, 'logs', logFileName);
@@ -495,7 +497,11 @@ class DockerModule {
            await fileHandle.read(buffer, 0, readLength, startOffset);
            
            const content = buffer.toString('utf-8');
-           const allLines = content.split('\n').filter(line => line.trim().length > 0);
+           let allLines = content.split('\n').filter(line => line.trim().length > 0);
+
+           if (search) {
+               allLines = allLines.filter(line => line.includes(search));
+           }
 
            const total = allLines.length;
            const paginatedLines = allLines.slice(offset, offset + limit);

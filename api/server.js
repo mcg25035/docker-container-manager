@@ -90,8 +90,8 @@ app.get('/api/services/:name/logs/read', async (req, res) => {
 app.post('/api/services/:name/logs/search', async (req, res) => {
     try {
         const { name } = req.params;
-        const { file, from, to, limit, offset } = req.body;
-        const result = await DockerModule.searchLogLinesByTimeRange(name, file, from, to, limit, offset);
+        const { file, from, to, limit, offset, search } = req.body;
+        const result = await DockerModule.searchLogLinesByTimeRange(name, file, from, to, limit, offset, search);
         console.log(file, from, to, result.lines.length);
         res.json(result);
     } catch (error) {
@@ -114,6 +114,7 @@ server.on('upgrade', (request, socket, head) => {
         wss.handleUpgrade(request, socket, head, async(ws) => {
             const serviceName = match[1];
             const file = query.file;
+            const search = query.search || '';
             
             if (!file) {
                 ws.close(1008, 'File query parameter is required');
@@ -124,7 +125,7 @@ server.on('upgrade', (request, socket, head) => {
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.send(logLine);
                 }
-            });
+            }, search);
 
             ws.on('close', () => {
                 console.log('Client disconnected, stopping log watch.');

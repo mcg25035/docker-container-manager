@@ -26,6 +26,7 @@ export const searchLogLinesByTimeRange = (
   from: string,
   to: string,
   limit: number,
-  offset: number
+  offset: number,
+  search: string,
 ): Promise<SearchLogResult> =>
-  apiClient.post(`/services/${name}/logs/search`, { file, from, to, limit, offset }).then(res => res.data);
+  apiClient.post(`/services/${name}/logs/search`, { file, from, to, limit, offset, search }).then(res => res.data);
