@@ -92,6 +92,7 @@ app.post('/api/services/:name/logs/search', async (req, res) => {
         const { name } = req.params;
         const { file, from, to } = req.body;
         const lines = await DockerModule.searchLogLinesByTimeRange(name, file, from, to);
+        console.log(file, from, to, lines.length);
         res.json(lines);
     } catch (error) {
         res.status(500).json({ error: error.message });
