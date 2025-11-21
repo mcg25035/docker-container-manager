@@ -324,11 +324,11 @@ const ServiceDetail: React.FC = () => {
             </div>
         </div>
 
-        <div ref={logContainerRef} onScroll={handleScroll} style={{ background: '#000', color: '#fff', padding: '8px', marginTop: '16px', maxHeight: '600px', overflowY: 'auto', overflowX: 'auto', fontFamily: 'monospace' }}>
+        <div ref={logContainerRef} onScroll={handleScroll} style={{ background: '#000', color: '#fff', padding: '8px', marginTop: '16px', maxHeight: '600px', overflow: 'auto', minWidth: 0 }}>
             {isInitialLogLoading ? <Spin /> : (
-                <pre style={{ whiteSpace: 'pre' }}><code>
+                <pre style={{ margin: 0, fontFamily: 'monospace' }}>
                     {consoleLogs.join('\n')}
-                </code></pre>
+                </pre>
             )}
             {searchMutation.isPending && <Spin />}
         </div>
