@@ -107,68 +107,31 @@ const server = app.listen(port, () => {
 const logWss = new WebSocket.Server({ noServer: true });
 const statusWss = new WebSocket.Server({ noServer: true });
 
-let serviceStatusState = {};
+let serviceStatusState = new Map();
 
-const broadcastStatusUpdates = async () => {
-    try {
-        const services = await DockerModule.listServices();
+async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function startStatusChecker() {
+    const services = await DockerModule.listServices();
+    while (true) {
         for (const service of services) {
-            const isUp = await DockerModule.isServiceUp(service);
-            const newStatus = isUp ? 'Up' : 'Down';
-
-            if (serviceStatusState[service] !== newStatus) {
-                serviceStatusState[service] = newStatus;
-                const payload = JSON.stringify({ serviceName: service, status: newStatus });
-                console.log(`Broadcasting status change for ${service}: ${newStatus}`);
-                statusWss.clients.forEach(client => {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(payload);
-                    }
-                });
+            await sleep(500);
+            try {
+                const isUp = await DockerModule.isServiceUp(service.name);
+                serviceStatusState.set(service.name, isUp);
+            }
+            catch (error) {
+                console.error(`Error checking status for service ${service.name}:`, error);
             }
         }
-    } catch (error) {
-        console.error('Failed to broadcast service status updates:', error);
+        await sleep(500);
     }
-};
+}
 
-const initializeStatusesAndStartPolling = async () => {
-    console.log('Initializing service statuses...');
-    try {
-        const services = await DockerModule.listServices();
-        for (const service of services) {
-            const isUp = await DockerModule.isServiceUp(service);
-            serviceStatusState[service] = isUp ? 'Up' : 'Down';
-        }
-        console.log('Initial service statuses loaded:', serviceStatusState);
-    } catch (error) {
-        console.error('Failed to initialize service statuses:', error);
-    }
-    
-    console.log('Starting persistent status update polling (3-second interval).');
-    setInterval(broadcastStatusUpdates, 3000);
-};
 
-// Start the polling loop once when the server starts.
-initializeStatusesAndStartPolling();
 
-statusWss.on('connection', (ws) => {
-    console.log('Client connected for status updates.');
-    
-    // Send the current state to the newly connected client immediately.
-    console.log('Sending current status to new client:', serviceStatusState);
-    Object.entries(serviceStatusState).forEach(([name, status]) => {
-        ws.send(JSON.stringify({ serviceName: name, status }));
-    });
-
-    ws.on('close', () => {
-        console.log('Client disconnected from status updates.');
-    });
-
-    ws.on('error', (error) => {
-        console.error('Status WebSocket error:', error);
-    });
-});
 
 server.on('upgrade', (request, socket, head) => {
     const { pathname, query } = url.parse(request.url, true);
@@ -209,3 +172,6 @@ server.on('upgrade', (request, socket, head) => {
         socket.destroy();
     }
 });
+
+
+startStatusChecker();
