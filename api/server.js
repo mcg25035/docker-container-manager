@@ -108,7 +108,6 @@ const logWss = new WebSocket.Server({ noServer: true });
 const statusWss = new WebSocket.Server({ noServer: true });
 
 let serviceStatusState = {};
-let statusUpdateInterval = null;
 
 const broadcastStatusUpdates = async () => {
     try {
@@ -133,16 +132,12 @@ const broadcastStatusUpdates = async () => {
     }
 };
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
 const initializeStatusesAndStartPolling = async () => {
-    console.log('Initializing statuses and starting polling...');
-    // Initial fetch, sequentially
+    console.log('Initializing service statuses...');
     try {
         const services = await DockerModule.listServices();
         for (const service of services) {
             const isUp = await DockerModule.isServiceUp(service);
-            await sleep(100); 
             serviceStatusState[service] = isUp ? 'Up' : 'Down';
         }
         console.log('Initial service statuses loaded:', serviceStatusState);
@@ -150,21 +145,17 @@ const initializeStatusesAndStartPolling = async () => {
         console.error('Failed to initialize service statuses:', error);
     }
     
-    // Start polling if not already started
-    if (!statusUpdateInterval) {
-        console.log('Starting status update polling (3-second interval).');
-        statusUpdateInterval = setInterval(broadcastStatusUpdates, 3000);
-    }
+    console.log('Starting persistent status update polling (3-second interval).');
+    setInterval(broadcastStatusUpdates, 3000);
 };
+
+// Start the polling loop once when the server starts.
+initializeStatusesAndStartPolling();
 
 statusWss.on('connection', (ws) => {
     console.log('Client connected for status updates.');
     
-    if (statusWss.clients.size === 1) {
-        initializeStatusesAndStartPolling();
-    }
-
-    // Send the current state to the newly connected client immediately
+    // Send the current state to the newly connected client immediately.
     console.log('Sending current status to new client:', serviceStatusState);
     Object.entries(serviceStatusState).forEach(([name, status]) => {
         ws.send(JSON.stringify({ serviceName: name, status }));
@@ -172,11 +163,6 @@ statusWss.on('connection', (ws) => {
 
     ws.on('close', () => {
         console.log('Client disconnected from status updates.');
-        if (statusWss.clients.size === 0) {
-            console.log('No clients connected, stopping status polling.');
-            clearInterval(statusUpdateInterval);
-            statusUpdateInterval = null;
-        }
     });
 
     ws.on('error', (error) => {
