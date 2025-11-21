@@ -100,44 +100,58 @@ app.post('/api/services/:name/logs/search', async (req, res) => {
 });
 
 
-const server = app.listen(port, () => {
-    console.log(`API server listening at http://localhost:${port}`);
+// Serve frontend after API routes
+const frontendDist = path.join(__dirname, '../frontend/dist');
+app.use(express.static(frontendDist));
+
+// For any other request (that's not a static file or API route),
+// serve the index.html file for client-side routing.
+app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendDist, 'index.html'));
 });
 
-const wss = new WebSocket.Server({ noServer: true });
+function startServer() {
+    const server = app.listen(port, () => {
+        console.log(`API server listening at http://localhost:${port}`);
+    });
 
-server.on('upgrade', (request, socket, head) => {
-    const { pathname, query } = url.parse(request.url, true);
-    const match = pathname.match(/^\/ws\/logs\/(.+)$/);
+    const wss = new WebSocket.Server({ noServer: true });
 
-    if (match) {
-        wss.handleUpgrade(request, socket, head, async(ws) => {
-            const serviceName = match[1];
-            const file = query.file;
-            const search = query.search || '';
-            
-            if (!file) {
-                ws.close(1008, 'File query parameter is required');
-                return;
-            }
+    server.on('upgrade', (request, socket, head) => {
+        const { pathname, query } = url.parse(request.url, true);
+        const match = pathname.match(/^\/ws\/logs\/(.+)$/);
 
-            const unwatch = await DockerModule.monitorServiceLogs(serviceName, file, (logLine) => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    ws.send(logLine);
+        if (match) {
+            wss.handleUpgrade(request, socket, head, async (ws) => {
+                const serviceName = match[1];
+                const file = query.file;
+                const search = query.search || '';
+
+                if (!file) {
+                    ws.close(1008, 'File query parameter is required');
+                    return;
                 }
-            }, search);
 
-            ws.on('close', () => {
-                console.log('Client disconnected, stopping log watch.');
-                unwatch();
-            });
+                const unwatch = await DockerModule.monitorServiceLogs(serviceName, file, (logLine) => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(logLine);
+                    }
+                }, search);
 
-            ws.on('error', (error) => {
-                console.error('WebSocket error:', error);
-                unwatch();
+                ws.on('close', () => {
+                    console.log('Client disconnected, stopping log watch.');
+                    unwatch();
+                });
+
+                ws.on('error', (error) => {
+                    console.error('WebSocket error:', error);
+                    unwatch();
+                });
             });
-        });
-    } else {
-        socket.destroy();
-    }
-});
+        } else {
+            socket.destroy();
+        }
+    });
+}
+
+module.exports = { startServer };
