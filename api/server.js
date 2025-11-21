@@ -119,10 +119,13 @@ const broadcastStatusUpdates = async () => {
         });
         const statuses = await Promise.all(statusPromises);
 
+        let changed = false;
         statuses.forEach(({ name, status }) => {
             if (serviceStatusState[name] !== status) {
                 serviceStatusState[name] = status;
+                changed = true;
                 const payload = JSON.stringify({ serviceName: name, status });
+                console.log(`Broadcasting status change for ${name}: ${status}`);
                 statusWss.clients.forEach(client => {
                     if (client.readyState === WebSocket.OPEN) {
                         client.send(payload);
@@ -130,23 +133,48 @@ const broadcastStatusUpdates = async () => {
                 });
             }
         });
+        // if (!changed) {
+        //     console.log('No status changes detected.');
+        // }
     } catch (error) {
         console.error('Failed to broadcast service status updates:', error);
     }
 };
 
+const initializeStatusesAndStartPolling = async () => {
+    console.log('Initializing statuses and starting polling...');
+    // Initial fetch
+    try {
+        const services = await DockerModule.listServices();
+        const statusPromises = services.map(async (service) => {
+            const isUp = await DockerModule.isServiceUp(service);
+            serviceStatusState[service] = isUp ? 'Up' : 'Down';
+        });
+        await Promise.all(statusPromises);
+        console.log('Initial service statuses loaded:', serviceStatusState);
+    } catch (error) {
+        console.error('Failed to initialize service statuses:', error);
+    }
+    
+    // Start polling if not already started
+    if (!statusUpdateInterval) {
+        console.log('Starting status update polling (3-second interval).');
+        statusUpdateInterval = setInterval(broadcastStatusUpdates, 3000);
+    }
+};
+
 statusWss.on('connection', (ws) => {
     console.log('Client connected for status updates.');
-    // Send current state immediately
+    
+    if (statusWss.clients.size === 1) {
+        initializeStatusesAndStartPolling();
+    }
+
+    // Send the current state to the newly connected client immediately
+    console.log('Sending current status to new client:', serviceStatusState);
     Object.entries(serviceStatusState).forEach(([name, status]) => {
         ws.send(JSON.stringify({ serviceName: name, status }));
     });
-
-    if (!statusUpdateInterval) {
-        console.log('Starting status update polling.');
-        broadcastStatusUpdates(); // Initial broadcast
-        statusUpdateInterval = setInterval(broadcastStatusUpdates, 2000); // Poll every 2 seconds
-    }
 
     ws.on('close', () => {
         console.log('Client disconnected from status updates.');
@@ -155,6 +183,10 @@ statusWss.on('connection', (ws) => {
             clearInterval(statusUpdateInterval);
             statusUpdateInterval = null;
         }
+    });
+
+    ws.on('error', (error) => {
+        console.error('Status WebSocket error:', error);
     });
 });
 
