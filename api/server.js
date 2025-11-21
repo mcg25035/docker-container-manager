@@ -119,11 +119,11 @@ async function startStatusChecker() {
         for (const service of services) {
             await sleep(500);
             try {
-                const isUp = await DockerModule.isServiceUp(service.name);
-                serviceStatusState.set(service.name, isUp);
+                const isUp = await DockerModule.isServiceUp(service);
+                serviceStatusState.set(service, isUp);
             }
             catch (error) {
-                console.error(`Error checking status for service ${service.name}:`, error);
+                console.error(`Error checking status for service ${service}:`, error);
             }
         }
         await sleep(500);
