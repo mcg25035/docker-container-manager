@@ -56,7 +56,7 @@ const ServiceDetail: React.FC = () => {
 
   useEffect(() => {
     if (initialLogData) {
-      setLogLines(initialLogData.lines);
+      setLogLines(initialLogData.lines ?? []);
       setNextLineToFetch(initialLogData.nextLine);
     }
   }, [initialLogData]);
@@ -152,7 +152,7 @@ const ServiceDetail: React.FC = () => {
     if (name && selectedLogFile && nextLineToFetch !== null) {
       try {
         const data = await readLogFile(name, selectedLogFile, nextLineToFetch);
-        setLogLines(prev => [...data.lines, ...prev]);
+        setLogLines(prev => [...(data.lines ?? []), ...prev]);
         setNextLineToFetch(data.nextLine);
       } catch (error) {
         message.error('Failed to load more log lines.');
