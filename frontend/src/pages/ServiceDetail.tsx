@@ -4,14 +4,15 @@ import { Button, message, notification, Card, Spin, Badge, Tabs, Table, Select, 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getServiceStatus, powerAction, getServiceConfig, getLogFiles, readLogFile, searchLogLinesByTimeRange } from '../api/client';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import yaml from 'js-yaml';
 
 interface ServiceStatus {
   status: 'Up' | 'Down';
 }
 
 interface ServiceConfig {
-  dockerCompose: string;
-  [key: string]: string;
+  dockerCompose: object;
+  [key: string]: string | object;
 }
 
 const ServiceDetail: React.FC = () => {
@@ -243,7 +244,7 @@ const ServiceDetail: React.FC = () => {
                 label: 'docker-compose.yml',
                 children: (
                   <SyntaxHighlighter language="yaml">
-                    {String(configData?.dockerCompose || '')}
+                    {configData?.dockerCompose ? yaml.dump(configData.dockerCompose) : ''}
                   </SyntaxHighlighter>
                 ),
               },
