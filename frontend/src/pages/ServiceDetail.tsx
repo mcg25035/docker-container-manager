@@ -56,6 +56,7 @@ const ServiceDetail: React.FC = () => {
   });
 
   useEffect(() => {
+    console.log('Received initial log data:', initialLogData);
     if (initialLogData) {
       setLogLines(initialLogData.lines ?? []);
       setNextLineToFetch(initialLogData.nextLine);
@@ -256,7 +257,10 @@ const ServiceDetail: React.FC = () => {
         <Select
           style={{ width: 200, marginBottom: 16 }}
           placeholder="Select a log file"
-          onChange={(value) => setSelectedLogFile(value)}
+          onChange={(value) => {
+            console.log('Selected log file:', value);
+            setSelectedLogFile(value);
+          }}
           loading={isLogFilesLoading}
           options={logFilesData?.map(file => ({ label: file, value: file }))}
         />
