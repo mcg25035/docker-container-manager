@@ -1,20 +1,26 @@
-import React, { useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import React from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { List, Card, Badge, Spin, message } from 'antd';
-import { getServices } from '../api/client';
+import { List, Card, Badge, Button, Spin, message } from 'antd';
+import { getServices, getServiceStatus, powerAction } from '../api/client';
+
+interface Service {
+  name: string;
+}
 
 interface ServiceStatus {
   status: 'Up' | 'Down';
 }
 
 const ServiceStatusIndicator: React.FC<{ serviceName: string }> = ({ serviceName }) => {
-  const { data } = useQuery<ServiceStatus, Error>({
+  const { data, isLoading, isError } = useQuery<ServiceStatus, Error>({
     queryKey: ['serviceStatus', serviceName],
-    enabled: false, // Prevents any initial fetching
+    queryFn: () => getServiceStatus(serviceName),
+    refetchInterval: 5000,
   });
 
-  if (!data) return <Badge status="processing" text="Syncing..." />;
+  if (isLoading) return <Badge status="processing" text="Loading..." />;
+  if (isError) return <Badge status="error" text="Error" />;
 
   switch (data?.status) {
     case 'Up':
@@ -29,35 +35,20 @@ const ServiceStatusIndicator: React.FC<{ serviceName: string }> = ({ serviceName
 const Dashboard: React.FC = () => {
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const ws = new WebSocket(`ws://${window.location.hostname}:3000/ws/status`);
-
-    ws.onopen = () => {
-      console.log('Connected to status WebSocket.');
-    };
-
-    ws.onmessage = (event) => {
-      const { serviceName, status } = JSON.parse(event.data);
-      queryClient.setQueryData(['serviceStatus', serviceName], { status });
-    };
-
-    ws.onclose = () => {
-      console.log('Disconnected from status WebSocket.');
-    };
-
-    ws.onerror = (error) => {
-      console.error('Status WebSocket error:', error);
-      message.error('WebSocket connection for status updates failed.');
-    };
-
-    return () => {
-      ws.close();
-    };
-  }, [queryClient]);
-
   const { data: services, isLoading } = useQuery<string[], Error>({
     queryKey: ['services'],
     queryFn: getServices,
+  });
+
+  const { mutate, isPending, variables } = useMutation({
+    mutationFn: (serviceName: string) => powerAction(serviceName, 'restart'),
+    onSuccess: (_, serviceName) => {
+      message.success(`Service ${serviceName} is restarting.`);
+      queryClient.invalidateQueries({ queryKey: ['serviceStatus', serviceName] });
+    },
+    onError: (error, serviceName) => {
+      message.error(`Failed to restart service ${serviceName}: ${error.message}`);
+    },
   });
 
   if (isLoading) {
@@ -75,7 +66,16 @@ const Dashboard: React.FC = () => {
             <Card
               title={<Link to={`/service/${serviceName}`}>{serviceName}</Link>}
               actions={[
-                <Link to={`/service/${serviceName}`}>View</Link>
+                <Button
+                  type="primary"
+                  onClick={() => mutate(serviceName)}
+                  loading={isPending && variables === serviceName}
+                >
+                  Quick Restart
+                </Button>,
+                <Button>
+                  <Link to={`/service/${serviceName}`}>View</Link>
+                </Button>,
               ]}
             >
               <ServiceStatusIndicator serviceName={serviceName} />
