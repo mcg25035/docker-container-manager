@@ -110,7 +110,7 @@ server.on('upgrade', (request, socket, head) => {
     const match = pathname.match(/^\/ws\/logs\/(.+)$/);
 
     if (match) {
-        wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.handleUpgrade(request, socket, head, async(ws) => {
             const serviceName = match[1];
             const file = query.file;
             
@@ -119,7 +119,7 @@ server.on('upgrade', (request, socket, head) => {
                 return;
             }
 
-            const unwatch = DockerModule.monitorServiceLogs(serviceName, file, (logLine) => {
+            const unwatch = await DockerModule.monitorServiceLogs(serviceName, file, (logLine) => {
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.send(logLine);
                 }
