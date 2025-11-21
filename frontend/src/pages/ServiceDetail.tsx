@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button, message, notification, Card, Spin, Badge, Tabs, Table, Select, DatePicker, Form, Switch } from 'antd';
-import { Dayjs } from 'dayjs';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getServiceStatus, powerAction, getServiceConfig, getLogFiles, readLogFile, searchLogLinesByTimeRange } from '../api/client';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -24,7 +23,7 @@ const ServiceDetail: React.FC = () => {
   const [selectedLogFile, setSelectedLogFile] = useState<string | null>(null);
   const [logLines, setLogLines] = useState<string[]>([]);
   const [nextLineToFetch, setNextLineToFetch] = useState<number | null>(null);
-  const [timeRange, setTimeRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
+  const [timeRange, setTimeRange] = useState<[Date | null, Date | null]>([null, null]);
   const [liveLogs, setLiveLogs] = useState<string[]>([]);
   const [isLiveTailOn, setIsLiveTailOn] = useState(false);
   const [ws, setWs] = useState<WebSocket | null>(null);
@@ -142,8 +141,8 @@ const ServiceDetail: React.FC = () => {
   const handleTimeTravelSearch = () => {
     if (timeRange[0] && timeRange[1]) {
       searchMutation.mutate({
-        from: timeRange[0].format('MM/DD/YYYY, h:mm:ss A'),
-        to: timeRange[1].format('MM/DD/YYYY, h:mm:ss A'),
+        from: timeRange[0].toISOString(),
+        to: timeRange[1].toISOString(),
       });
     } else {
       message.warning('Please select both start and end times.');
@@ -289,10 +288,10 @@ const ServiceDetail: React.FC = () => {
                   <>
                     <Form layout="inline" style={{ marginBottom: 16 }}>
                       <Form.Item label="Start Time">
-                        <DatePicker showTime onChange={(date) => setTimeRange(prev => [date, prev[1]])} />
+                        <DatePicker showTime onChange={(date) => setTimeRange(prev => [date ? date.toDate() : null, prev[1]])} />
                       </Form.Item>
                       <Form.Item label="End Time">
-                        <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date])} />
+                        <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date ? date.toDate() : null])} />
                       </Form.Item>
                       <Form.Item>
                         <Button type="primary" onClick={handleTimeTravelSearch} loading={searchMutation.isPending} disabled={!selectedLogFile}>
