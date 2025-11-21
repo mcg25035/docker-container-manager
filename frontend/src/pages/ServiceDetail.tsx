@@ -49,17 +49,16 @@ const ServiceDetail: React.FC = () => {
     enabled: !!name, // FIX: Prevent query from running if name is undefined
   });
 
-  const { data: initialLogData, isLoading: isInitialLogLoading } = useQuery<{ lines: string[], nextLine: number }, Error>({
+  const { data: initialLogData, isLoading: isInitialLogLoading } = useQuery({
     queryKey: ['logContent', name, selectedLogFile, 'initial'],
-    queryFn: () => readLogFile(name!, selectedLogFile!, -100),
-    enabled: !!name && !!selectedLogFile, // FIX: Prevent query from running if name or file is undefined
+    queryFn: (): Promise<string[]> => readLogFile(name!, selectedLogFile!, -100),
+    enabled: !!name && !!selectedLogFile,
   });
 
   useEffect(() => {
-    console.log('Received initial log data:', initialLogData);
     if (initialLogData) {
-      setLogLines(initialLogData.lines ?? []);
-      setNextLineToFetch(initialLogData.nextLine);
+      setLogLines(initialLogData ?? []);
+      setNextLineToFetch(0);
     }
   }, [initialLogData]);
 
@@ -154,8 +153,8 @@ const ServiceDetail: React.FC = () => {
     if (name && selectedLogFile && nextLineToFetch !== null) {
       try {
         const data = await readLogFile(name, selectedLogFile, nextLineToFetch);
-        setLogLines(prev => [...(data.lines ?? []), ...prev]);
-        setNextLineToFetch(data.nextLine);
+        setLogLines(prev => [...(data ?? []), ...prev]);
+        setNextLineToFetch(nextLineToFetch - 100);
       } catch (error) {
         message.error('Failed to load more log lines.');
       }
@@ -257,10 +256,7 @@ const ServiceDetail: React.FC = () => {
         <Select
           style={{ width: 200, marginBottom: 16 }}
           placeholder="Select a log file"
-          onChange={(value) => {
-            console.log('Selected log file:', value);
-            setSelectedLogFile(value);
-          }}
+          onChange={(value) => setSelectedLogFile(value)}
           loading={isLogFilesLoading}
           options={logFilesData?.map(file => ({ label: file, value: file }))}
         />
