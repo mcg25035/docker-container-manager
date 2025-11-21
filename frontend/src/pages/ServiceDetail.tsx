@@ -239,11 +239,11 @@ const ServiceDetail: React.FC = () => {
 
   return (
     <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', height: '100vh', boxSizing: 'border-box' }}>
-      <h1>{name}</h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: 24 }}>
+        <h1 style={{ margin: 0 }}>{name}</h1>
+        {isStatusLoading ? <Spin /> : <Badge status={statusType} text={statusText} />}
+      </div>
       <div style={{ flexShrink: 0, overflowY: 'auto' }}>
-        <Card title="Current Status" style={{ marginBottom: 24 }}>
-          {isStatusLoading ? <Spin /> : <Badge status={statusType} text={statusText} />}
-        </Card>
         <Card title="Control Panel" style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', gap: '8px' }}>
             <Button onClick={() => handlePowerAction('start')} disabled={isPending} loading={isPending && variables === 'start'}>Start</Button>
