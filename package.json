@@ -8,6 +8,7 @@
     "start": "node index.js",
     "dev": "concurrently \"npm run start\" \"npm run dev --prefix frontend\"",
     "postinstall": "npm install --prefix frontend",
+    "build": "npm run build --prefix frontend",
     "compile": "npm run compile --prefix frontend"
   },
   "keywords": [],
