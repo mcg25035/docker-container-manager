@@ -10,8 +10,8 @@ interface ServiceStatus {
 }
 
 interface ServiceConfig {
-  env: string;
   dockerCompose: string;
+  [key: string]: string;
 }
 
 const ServiceDetail: React.FC = () => {
@@ -61,15 +61,15 @@ const ServiceDetail: React.FC = () => {
     }
   }, [initialLogData]);
 
-  const envData = (configData?.env ?? '')
-    .split('\n')
-    .filter(line => line.trim() !== '')
-    .map((line, index) => {
-      const parts = line.split('=');
-      const key = parts[0] || '';
-      const value = parts.slice(1).join('=') || '';
-      return { key: `env-${index}`, name: key, value: value };
-    });
+  const otherConfigs = configData
+    ? Object.entries(configData)
+      .filter(([key]) => key !== 'dockerCompose')
+      .map(([key, value], index) => ({
+        key: `config-${index}`,
+        name: key,
+        value: String(value),
+      }))
+    : [];
 
   const columns = [
     { title: 'Key', dataIndex: 'name', key: 'name' },
@@ -235,8 +235,8 @@ const ServiceDetail: React.FC = () => {
             items={[
               {
                 key: '1',
-                label: '.env',
-                children: <Table dataSource={envData} columns={columns} pagination={false} />,
+                label: 'Configurations',
+                children: <Table dataSource={otherConfigs} columns={columns} pagination={false} />,
               },
               {
                 key: '2',
