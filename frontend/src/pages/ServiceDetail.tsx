@@ -61,7 +61,7 @@ const ServiceDetail: React.FC = () => {
     }
   }, [initialLogData]);
 
-  const envData = configData?.env
+  const envData = (configData?.env ?? '')
     .split('\n')
     .filter(line => line.trim() !== '')
     .map((line, index) => {
@@ -230,16 +230,25 @@ const ServiceDetail: React.FC = () => {
         ) : configError ? (
           <div>Error loading configuration: {configError.message}</div>
         ) : (
-          <Tabs defaultActiveKey="1">
-            <Tabs.TabPane tab=".env" key="1">
-              <Table dataSource={envData} columns={columns} pagination={false} />
-            </Tabs.TabPane>
-            <Tabs.TabPane tab="docker-compose.yml" key="2">
-              <SyntaxHighlighter language="yaml">
-                {configData?.dockerCompose || ''}
-              </SyntaxHighlighter>
-            </Tabs.TabPane>
-          </Tabs>
+          <Tabs
+            defaultActiveKey="1"
+            items={[
+              {
+                key: '1',
+                label: '.env',
+                children: <Table dataSource={envData} columns={columns} pagination={false} />,
+              },
+              {
+                key: '2',
+                label: 'docker-compose.yml',
+                children: (
+                  <SyntaxHighlighter language="yaml">
+                    {configData?.dockerCompose || ''}
+                  </SyntaxHighlighter>
+                ),
+              },
+            ]}
+          />
         )}
       </Card>
       <Card title="Log Explorer" style={{ marginTop: 24 }}>
@@ -250,62 +259,83 @@ const ServiceDetail: React.FC = () => {
           loading={isLogFilesLoading}
           options={logFilesData?.map(file => ({ label: file, value: file }))}
         />
-        <Tabs defaultActiveKey="1">
-          <Tabs.TabPane tab="History" key="1">
-            <Button onClick={handleLoadMore} disabled={nextLineToFetch === null}>Load More Previous</Button>
-            <div style={{ background: '#f0f2f5', padding: '8px', marginTop: '16px', maxHeight: '400px', overflowY: 'auto' }}>
-              {isInitialLogLoading ? <Spin /> : (
-                <pre>
-                  <code>
-                    {logLines.join('\n')}
-                  </code>
-                </pre>
-              )}
-            </div>
-          </Tabs.TabPane>
-          <Tabs.TabPane tab="Time Travel" key="2">
-            <Form layout="inline" style={{ marginBottom: 16 }}>
-              <Form.Item label="Start Time">
-                <DatePicker showTime onChange={(date) => setTimeRange(prev => [date ? date.toDate() : null, prev[1]])} />
-              </Form.Item>
-              <Form.Item label="End Time">
-                <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date ? date.toDate() : null])} />
-              </Form.Item>
-              <Form.Item>
-                <Button type="primary" onClick={handleTimeTravelSearch} loading={searchMutation.isPending} disabled={!selectedLogFile}>
-                  Search
-                </Button>
-              </Form.Item>
-            </Form>
-            {searchMutation.isPending && <Spin />}
-            {searchMutation.error && <div style={{ color: 'red' }}>Error: {searchMutation.error.message}</div>}
-            {searchMutation.data && (
-              <div style={{ background: '#f0f2f5', padding: '8px', marginTop: '16px', maxHeight: '400px', overflowY: 'auto' }}>
-                <pre>
-                  <code>
-                    {searchMutation.data.join('\n')}
-                  </code>
-                </pre>
-              </div>
-            )}
-          </Tabs.TabPane>
-          <Tabs.TabPane tab="Live Tail" key="3">
-            <Switch
-              checkedChildren="Stop Monitoring"
-              unCheckedChildren="Start Monitoring"
-              checked={isLiveTailOn}
-              onChange={handleLiveTailToggle}
-              disabled={!selectedLogFile}
-            />
-            <div ref={logContainerRef} onScroll={handleScroll} style={{ background: '#000', color: '#fff', padding: '8px', marginTop: '16px', maxHeight: '400px', overflowY: 'auto', fontFamily: 'monospace' }}>
-              <pre>
-                <code>
-                  {liveLogs.join('\n')}
-                </code>
-              </pre>
-            </div>
-          </Tabs.TabPane>
-        </Tabs>
+        <Tabs
+            defaultActiveKey="1"
+            items={[
+              {
+                key: '1',
+                label: 'History',
+                children: (
+                  <>
+                    <Button onClick={handleLoadMore} disabled={nextLineToFetch === null}>Load More Previous</Button>
+                    <div style={{ background: '#f0f2f5', padding: '8px', marginTop: '16px', maxHeight: '400px', overflowY: 'auto' }}>
+                      {isInitialLogLoading ? <Spin /> : (
+                        <pre>
+                          <code>
+                            {logLines.join('\n')}
+                          </code>
+                        </pre>
+                      )}
+                    </div>
+                  </>
+                ),
+              },
+              {
+                key: '2',
+                label: 'Time Travel',
+                children: (
+                  <>
+                    <Form layout="inline" style={{ marginBottom: 16 }}>
+                      <Form.Item label="Start Time">
+                        <DatePicker showTime onChange={(date) => setTimeRange(prev => [date ? date.toDate() : null, prev[1]])} />
+                      </Form.Item>
+                      <Form.Item label="End Time">
+                        <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date ? date.toDate() : null])} />
+                      </Form.Item>
+                      <Form.Item>
+                        <Button type="primary" onClick={handleTimeTravelSearch} loading={searchMutation.isPending} disabled={!selectedLogFile}>
+                          Search
+                        </Button>
+                      </Form.Item>
+                    </Form>
+                    {searchMutation.isPending && <Spin />}
+                    {searchMutation.error && <div style={{ color: 'red' }}>Error: {searchMutation.error.message}</div>}
+                    {searchMutation.data && (
+                      <div style={{ background: '#f0f2f5', padding: '8px', marginTop: '16px', maxHeight: '400px', overflowY: 'auto' }}>
+                        <pre>
+                          <code>
+                            {searchMutation.data.join('\n')}
+                          </code>
+                        </pre>
+                      </div>
+                    )}
+                  </>
+                ),
+              },
+              {
+                key: '3',
+                label: 'Live Tail',
+                children: (
+                  <>
+                    <Switch
+                      checkedChildren="Stop Monitoring"
+                      unCheckedChildren="Start Monitoring"
+                      checked={isLiveTailOn}
+                      onChange={handleLiveTailToggle}
+                      disabled={!selectedLogFile}
+                    />
+                    <div ref={logContainerRef} onScroll={handleScroll} style={{ background: '#000', color: '#fff', padding: '8px', marginTop: '16px', maxHeight: '400px', overflowY: 'auto', fontFamily: 'monospace' }}>
+                      <pre>
+                        <code>
+                          {liveLogs.join('\n')}
+                        </code>
+                      </pre>
+                    </div>
+                  </>
+                ),
+              },
+            ]}
+          />
       </Card>
     </div>
   );
