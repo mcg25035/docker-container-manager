@@ -286,7 +286,7 @@ const ServiceDetail: React.FC = () => {
         </Card>
         <Card
           title="Console"
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: '60vh' }}
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: '250vh' }}
           bodyStyle={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px' }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
