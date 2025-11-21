@@ -104,42 +104,15 @@ const server = app.listen(port, () => {
     console.log(`API server listening at http://localhost:${port}`);
 });
 
-const logWss = new WebSocket.Server({ noServer: true });
-const statusWss = new WebSocket.Server({ noServer: true });
-
-let serviceStatusState = new Map();
-
-async function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function startStatusChecker() {
-    const services = await DockerModule.listServices();
-    while (true) {
-        for (const service of services) {
-            await sleep(500);
-            try {
-                const isUp = await DockerModule.isServiceUp(service);
-                serviceStatusState.set(service, isUp);
-            }
-            catch (error) {
-                console.error(`Error checking status for service ${service}:`, error);
-            }
-        }
-        await sleep(500);
-    }
-}
-
-
-
+const wss = new WebSocket.Server({ noServer: true });
 
 server.on('upgrade', (request, socket, head) => {
     const { pathname, query } = url.parse(request.url, true);
-    const logMatch = pathname.match(/^\/ws\/logs\/(.+)$/);
+    const match = pathname.match(/^\/ws\/logs\/(.+)$/);
 
-    if (logMatch) {
-        logWss.handleUpgrade(request, socket, head, async(ws) => {
-            const serviceName = logMatch[1];
+    if (match) {
+        wss.handleUpgrade(request, socket, head, async(ws) => {
+            const serviceName = match[1];
             const file = query.file;
             const search = query.search || '';
             
@@ -164,14 +137,7 @@ server.on('upgrade', (request, socket, head) => {
                 unwatch();
             });
         });
-    } else if (pathname === '/ws/status') {
-        statusWss.handleUpgrade(request, socket, head, (ws) => {
-            statusWss.emit('connection', ws, request);
-        });
     } else {
         socket.destroy();
     }
 });
-
-
-startStatusChecker();
