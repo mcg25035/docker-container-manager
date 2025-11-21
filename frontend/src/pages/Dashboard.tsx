@@ -40,16 +40,6 @@ const Dashboard: React.FC = () => {
     queryFn: getServices,
   });
 
-  const { mutate, isPending, variables } = useMutation({
-    mutationFn: (serviceName: string) => powerAction(serviceName, 'restart'),
-    onSuccess: (_, serviceName) => {
-      message.success(`Service ${serviceName} is restarting.`);
-      queryClient.invalidateQueries({ queryKey: ['serviceStatus', serviceName] });
-    },
-    onError: (error, serviceName) => {
-      message.error(`Failed to restart service ${serviceName}: ${error.message}`);
-    },
-  });
 
   if (isLoading) {
     return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><Spin size="large" /></div>;
@@ -66,16 +56,7 @@ const Dashboard: React.FC = () => {
             <Card
               title={<Link to={`/service/${serviceName}`}>{serviceName}</Link>}
               actions={[
-                <Button
-                  type="primary"
-                  onClick={() => mutate(serviceName)}
-                  loading={isPending && variables === serviceName}
-                >
-                  Quick Restart
-                </Button>,
-                <Button>
-                  <Link to={`/service/${serviceName}`}>View</Link>
-                </Button>,
+                <Link to={`/service/${serviceName}`}>View</Link>
               ]}
             >
               <ServiceStatusIndicator serviceName={serviceName} />
