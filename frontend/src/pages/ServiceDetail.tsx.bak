@@ -26,13 +26,12 @@ const ServiceDetail: React.FC = () => {
   const [nextLineToFetch, setNextLineToFetch] = useState<number | null>(null);
   const [timeRange, setTimeRange] = useState<[Date | null, Date | null]>([null, null]);
   const [liveLogs, setLiveLogs] = useState<string[]>([]);
-  const [isAutoUpdateOn, setIsAutoUpdateOn] = useState(false);
-  const [isAutoScrollOn, setIsAutoScrollOn] = useState(true);
+  const [isLiveTailOn, setIsLiveTailOn] = useState(false);
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [timeTravelLogs, setTimeTravelLogs] = useState<string[]>([]);
   const [timeTravelTotal, setTimeTravelTotal] = useState<number>(0);
-  const [activeLogView, setActiveLogView] = useState<'history' | 'timeTravel' | 'live'>('history');
   const logContainerRef = useRef<HTMLDivElement | null>(null);
+  const userScrolledUpRef = useRef(false);
 
   const { data: statusData, isLoading: isStatusLoading } = useQuery<ServiceStatus, Error>({
     queryKey: ['serviceStatus', name],
@@ -185,24 +184,24 @@ const ServiceDetail: React.FC = () => {
     }
   };
 
-  const handleAutoUpdateToggle = (checked: boolean) => {
-    setIsAutoUpdateOn(checked);
+  const handleLiveTailToggle = (checked: boolean) => {
+    setIsLiveTailOn(checked);
     if (checked) {
       if (!selectedLogFile) {
         message.error('Please select a log file first.');
-        setIsAutoUpdateOn(false);
+        setIsLiveTailOn(false);
         return;
       }
-      setActiveLogView('live');
+      userScrolledUpRef.current = false;
       const newWs = new WebSocket(`ws://${window.location.hostname}:3000/ws/logs/${name}?file=${selectedLogFile}`);
       newWs.onopen = () => {
-        message.success('Auto-update started.');
+        message.success('Live tail started.');
       };
       newWs.onmessage = (event) => {
         setLiveLogs(prev => [...prev, event.data]);
       };
       newWs.onclose = () => {
-        message.info('Auto-update stopped.');
+        message.info('Live tail stopped.');
       };
       newWs.onerror = (error) => {
         message.error('WebSocket error.');
@@ -213,26 +212,23 @@ const ServiceDetail: React.FC = () => {
       if (ws) {
         ws.close();
       }
+      setLiveLogs([]);
       setWs(null);
     }
   };
 
   useEffect(() => {
     const logContainer = logContainerRef.current;
-    if (logContainer && isAutoScrollOn) {
+    if (logContainer && !userScrolledUpRef.current) {
       logContainer.scrollTop = logContainer.scrollHeight;
     }
-  }, [liveLogs, timeTravelLogs, logLines, isAutoScrollOn]);
+  }, [liveLogs]);
 
   const handleScroll = () => {
     const logContainer = logContainerRef.current;
     if (logContainer) {
-      const isScrolledToBottom = Math.abs(logContainer.scrollHeight - logContainer.scrollTop - logContainer.clientHeight) < 2;
-      if (isScrolledToBottom) {
-        setIsAutoScrollOn(true);
-      } else {
-        setIsAutoScrollOn(false);
-      }
+      const isScrolledToBottom = Math.abs(logContainer.scrollHeight - logContainer.scrollTop - logContainer.clientHeight) < 1;
+      userScrolledUpRef.current = !isScrolledToBottom;
     }
   };
 
@@ -280,63 +276,96 @@ const ServiceDetail: React.FC = () => {
           />
         )}
       </Card>
-      <Card title="Console" style={{ marginTop: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: '8px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <Select
-                    style={{ width: 200 }}
-                    placeholder="Select a log file"
-                    onChange={(value) => {
-                        setSelectedLogFile(value);
-                        setActiveLogView('history');
-                        setLiveLogs([]);
-                        setTimeTravelLogs([]);
-                    }}
-                    loading={isLogFilesLoading}
-                    options={logFilesData?.map(file => ({ label: file, value: file }))}
-                    value={selectedLogFile}
-                />
-                <DatePicker showTime onChange={(date) => setTimeRange(prev => [date ? date.toDate() : null, prev[1]])} placeholder="Start time" />
-                <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date ? date.toDate() : null])} placeholder="End time" />
-                <Button type="primary" onClick={() => { setActiveLogView('timeTravel'); handleTimeTravelSearch(); }} loading={searchMutation.isPending && activeLogView === 'timeTravel'} disabled={!selectedLogFile}>
-                    Search
-                </Button>
-                <Button onClick={() => { setActiveLogView('history'); handleLoadMore(); }} disabled={nextLineToFetch === null || activeLogView !== 'history'}>
-                    Load More Previous
-                </Button>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <Form.Item label="Auto-update" style={{ marginBottom: 0 }}>
+      <Card title="Log Explorer" style={{ marginTop: 24 }}>
+        <Select
+          style={{ width: 200, marginBottom: 16 }}
+          placeholder="Select a log file"
+          onChange={(value) => setSelectedLogFile(value)}
+          loading={isLogFilesLoading}
+          options={logFilesData?.map(file => ({ label: file, value: file }))}
+        />
+        <Tabs
+            defaultActiveKey="1"
+            items={[
+              {
+                key: '1',
+                label: 'History',
+                children: (
+                  <>
+                    <Button onClick={handleLoadMore} disabled={nextLineToFetch === null}>Load More Previous</Button>
+                    <div style={{ background: '#f0f2f5', padding: '8px', marginTop: '16px', maxHeight: '400px', overflowY: 'auto' }}>
+                      {isInitialLogLoading ? <Spin /> : (
+                        <pre>
+                          <code>
+                            {logLines.join('\n')}
+                          </code>
+                        </pre>
+                      )}
+                    </div>
+                  </>
+                ),
+              },
+              {
+                key: '2',
+                label: 'Time Travel',
+                children: (
+                  <>
+                    <Form layout="inline" style={{ marginBottom: 16 }}>
+                      <Form.Item label="Start Time">
+                        <DatePicker showTime onChange={(date) => setTimeRange(prev => [date ? date.toDate() : null, prev[1]])} />
+                      </Form.Item>
+                      <Form.Item label="End Time">
+                        <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date ? date.toDate() : null])} />
+                      </Form.Item>
+                      <Form.Item>
+                        <Button type="primary" onClick={handleTimeTravelSearch} loading={searchMutation.isPending} disabled={!selectedLogFile}>
+                          Search
+                        </Button>
+                      </Form.Item>
+                    </Form>
+                    {searchMutation.isPending && <Spin />}
+                    {searchMutation.error && <div style={{ color: 'red' }}>Error: {searchMutation.error.message}</div>}
+                    {timeTravelLogs.length > 0 && (
+                      <div style={{ background: '#f0f2f5', padding: '8px', marginTop: '16px', maxHeight: '400px', overflowY: 'auto' }}>
+                        <pre>
+                          <code>
+                            {timeTravelLogs.join('\n')}
+                          </code>
+                        </pre>
+                      </div>
+                    )}
+                    {timeTravelLogs.length < timeTravelTotal && (
+                      <Button onClick={handleTimeTravelLoadMore} style={{ marginTop: 8 }} loading={searchMutation.isPending}>
+                        Show More ({timeTravelLogs.length} / {timeTravelTotal})
+                      </Button>
+                    )}
+                  </>
+                ),
+              },
+              {
+                key: '3',
+                label: 'Live Tail',
+                children: (
+                  <>
                     <Switch
-                        checked={isAutoUpdateOn}
-                        onChange={handleAutoUpdateToggle}
-                        disabled={!selectedLogFile}
+                      checkedChildren="Stop Monitoring"
+                      unCheckedChildren="Start Monitoring"
+                      checked={isLiveTailOn}
+                      onChange={handleLiveTailToggle}
+                      disabled={!selectedLogFile}
                     />
-                </Form.Item>
-                <Form.Item label="Auto-scroll" style={{ marginBottom: 0 }}>
-                    <Switch
-                        checked={isAutoScrollOn}
-                        onChange={setIsAutoScrollOn}
-                    />
-                </Form.Item>
-            </div>
-        </div>
-
-        <div ref={logContainerRef} onScroll={handleScroll} style={{ background: '#000', color: '#fff', padding: '8px', marginTop: '16px', maxHeight: '600px', overflowY: 'auto', fontFamily: 'monospace' }}>
-            {isInitialLogLoading && activeLogView === 'history' ? <Spin /> : (
-                <pre><code>
-                    {activeLogView === 'live' && liveLogs.join('\n')}
-                    {activeLogView === 'timeTravel' && timeTravelLogs.join('\n')}
-                    {activeLogView === 'history' && logLines.join('\n')}
-                </code></pre>
-            )}
-            {searchMutation.isPending && activeLogView === 'timeTravel' && <Spin />}
-        </div>
-        {activeLogView === 'timeTravel' && timeTravelLogs.length < timeTravelTotal && (
-            <Button onClick={handleTimeTravelLoadMore} style={{ marginTop: 8 }} loading={searchMutation.isPending}>
-                Show More ({timeTravelLogs.length} / {timeTravelTotal})
-            </Button>
-        )}
+                    <div ref={logContainerRef} onScroll={handleScroll} style={{ background: '#000', color: '#fff', padding: '8px', marginTop: '16px', maxHeight: '400px', overflowY: 'auto', fontFamily: 'monospace' }}>
+                      <pre>
+                        <code>
+                          {liveLogs.join('\n')}
+                        </code>
+                      </pre>
+                    </div>
+                  </>
+                ),
+              },
+            ]}
+          />
       </Card>
     </div>
   );
