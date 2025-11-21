@@ -186,7 +186,8 @@ const ServiceDetail: React.FC = () => {
         setIsAutoUpdateOn(false);
         return;
       }
-      const newWs = new WebSocket(`ws://${window.location.hostname}:3000/ws/logs/${name}?file=${selectedLogFile}&search=${encodeURIComponent(searchTerm)}`);
+      const wsUrl = import.meta.env.VITE_API_URL.replace(/^http/, 'ws');
+      const newWs = new WebSocket(`${wsUrl}/ws/logs/${name}?file=${selectedLogFile}&search=${encodeURIComponent(searchTerm)}`);
       newWs.onopen = () => {
         message.success('Auto-update started.');
       };
