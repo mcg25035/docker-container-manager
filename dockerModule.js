@@ -134,7 +134,10 @@ class DockerModule {
         const match = lineStr.match(timeRegex);
 
         if (match) {
-            const ts = new Date(match[1]).getTime();
+            const dateString = match[1];
+            const parsedDate = new Date(dateString);
+            console.log(`[DEBUG] #extractTimeAtOffset: Original="${dateString}", Parsed as UTC ISO="${parsedDate.toISOString()}"`);
+            const ts = parsedDate.getTime();
             return isNaN(ts) ? null : ts;
         }
         return null;
@@ -167,8 +170,11 @@ class DockerModule {
                 const match = line.match(timeRegex);
                 
                 if (match) {
-                    const ts = new Date(match[1]).getTime();
-                    if (!isNaN(ts)) {
+                    const dateString = match[1];
+                    const parsedDate = new Date(dateString);
+                    console.log(`[DEBUG] #scanForwardForTime: Original="${dateString}", Parsed as UTC ISO="${parsedDate.toISOString()}"`);
+                    const ts = parsedDate.getTime();
+                    if (ts) {
                         return { nextTs: ts, nextOffset: currentOffset + localOffset };
                     }
                 }
