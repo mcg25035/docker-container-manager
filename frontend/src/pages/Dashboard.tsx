@@ -2,20 +2,19 @@ import React, { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { List, Card, Badge, Spin, message } from 'antd';
-import { getServices, getServiceStatus } from '../api/client';
+import { getServices } from '../api/client';
 
 interface ServiceStatus {
   status: 'Up' | 'Down';
 }
 
 const ServiceStatusIndicator: React.FC<{ serviceName: string }> = ({ serviceName }) => {
-  const { data, isLoading, isError } = useQuery<ServiceStatus, Error>({
+  const { data } = useQuery<ServiceStatus, Error>({
     queryKey: ['serviceStatus', serviceName],
-    queryFn: () => getServiceStatus(serviceName),
+    enabled: false, // Prevents any initial fetching
   });
 
-  if (isLoading) return <Badge status="processing" text="Loading..." />;
-  if (isError) return <Badge status="error" text="Error" />;
+  if (!data) return <Badge status="processing" text="Syncing..." />;
 
   switch (data?.status) {
     case 'Up':

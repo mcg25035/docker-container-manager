@@ -113,29 +113,21 @@ let statusUpdateInterval = null;
 const broadcastStatusUpdates = async () => {
     try {
         const services = await DockerModule.listServices();
-        const statusPromises = services.map(async (service) => {
+        for (const service of services) {
             const isUp = await DockerModule.isServiceUp(service);
-            return { name: service, status: isUp ? 'Up' : 'Down' };
-        });
-        const statuses = await Promise.all(statusPromises);
+            const newStatus = isUp ? 'Up' : 'Down';
 
-        let changed = false;
-        statuses.forEach(({ name, status }) => {
-            if (serviceStatusState[name] !== status) {
-                serviceStatusState[name] = status;
-                changed = true;
-                const payload = JSON.stringify({ serviceName: name, status });
-                console.log(`Broadcasting status change for ${name}: ${status}`);
+            if (serviceStatusState[service] !== newStatus) {
+                serviceStatusState[service] = newStatus;
+                const payload = JSON.stringify({ serviceName: service, status: newStatus });
+                console.log(`Broadcasting status change for ${service}: ${newStatus}`);
                 statusWss.clients.forEach(client => {
                     if (client.readyState === WebSocket.OPEN) {
                         client.send(payload);
                     }
                 });
             }
-        });
-        // if (!changed) {
-        //     console.log('No status changes detected.');
-        // }
+        }
     } catch (error) {
         console.error('Failed to broadcast service status updates:', error);
     }
@@ -143,14 +135,13 @@ const broadcastStatusUpdates = async () => {
 
 const initializeStatusesAndStartPolling = async () => {
     console.log('Initializing statuses and starting polling...');
-    // Initial fetch
+    // Initial fetch, sequentially
     try {
         const services = await DockerModule.listServices();
-        const statusPromises = services.map(async (service) => {
+        for (const service of services) {
             const isUp = await DockerModule.isServiceUp(service);
             serviceStatusState[service] = isUp ? 'Up' : 'Down';
-        });
-        await Promise.all(statusPromises);
+        }
         console.log('Initial service statuses loaded:', serviceStatusState);
     } catch (error) {
         console.error('Failed to initialize service statuses:', error);
