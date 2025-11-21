@@ -243,7 +243,7 @@ const ServiceDetail: React.FC = () => {
                 label: 'docker-compose.yml',
                 children: (
                   <SyntaxHighlighter language="yaml">
-                    {configData?.dockerCompose || ''}
+                    {String(configData?.dockerCompose || '')}
                   </SyntaxHighlighter>
                 ),
               },
