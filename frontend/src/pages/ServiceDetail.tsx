@@ -324,9 +324,9 @@ const ServiceDetail: React.FC = () => {
             </div>
         </div>
 
-        <div ref={logContainerRef} onScroll={handleScroll} style={{ background: '#000', color: '#fff', padding: '8px', marginTop: '16px', maxHeight: '600px', overflowY: 'auto', fontFamily: 'monospace' }}>
+        <div ref={logContainerRef} onScroll={handleScroll} style={{ background: '#000', color: '#fff', padding: '8px', marginTop: '16px', maxHeight: '600px', overflowY: 'auto', overflowX: 'auto', fontFamily: 'monospace' }}>
             {isInitialLogLoading ? <Spin /> : (
-                <pre><code>
+                <pre style={{ whiteSpace: 'pre' }}><code>
                     {consoleLogs.join('\n')}
                 </code></pre>
             )}
