@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { Button, message, notification, Card, Spin, Badge, Tabs, Table, Select, DatePicker, Form, Switch, Input } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getServiceStatus, powerAction, getServiceConfig, getLogFiles, readLogFile, searchLogLinesByTimeRange } from '../api/client';
@@ -249,11 +249,12 @@ const ServiceDetail: React.FC = () => {
 
   return (
     <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', height: '100vh', boxSizing: 'border-box' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: 24 }}>
-        <h1 style={{ margin: 0 }}>{name}</h1>
-        {isStatusLoading ? <Spin /> : (
-          <div style={{
-            backgroundColor: statusColors[statusType],
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <h1 style={{ margin: 0 }}>{name}</h1>
+          {isStatusLoading ? <Spin /> : (
+            <div style={{
+              backgroundColor: statusColors[statusType],
             borderRadius: '12px',
             padding: '4px 12px',
             display: 'inline-flex',
@@ -269,7 +270,9 @@ const ServiceDetail: React.FC = () => {
             }} />
             <span style={{ color: 'white', fontWeight: 'bold' }}>{statusText}</span>
           </div>
-        )}
+          )}
+        </div>
+        <Link to="/"><Button>Back to Dashboard</Button></Link>
       </div>
       <div style={{ flexShrink: 0, overflowY: 'auto' }}>
         <Card title="Control Panel" style={{ marginBottom: 24 }}>
