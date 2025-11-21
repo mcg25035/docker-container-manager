@@ -292,7 +292,7 @@ const ServiceDetail: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: '8px', flexShrink: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <Select
-                style={{ width: 200 }}
+                style={{ minWidth: 350 }}
                 placeholder="Select a log file"
                 onChange={(value) => {
                   setSelectedLogFile(value);
@@ -307,9 +307,6 @@ const ServiceDetail: React.FC = () => {
               <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date ? date.toDate() : null])} placeholder="End time" />
               <Button type="primary" onClick={handleTimeTravelSearch} loading={searchMutation.isPending} disabled={!selectedLogFile}>
                 Search
-              </Button>
-              <Button onClick={handleLoadMore} disabled={nextLineToFetch === null}>
-                Load More Previous
               </Button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
