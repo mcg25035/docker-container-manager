@@ -22,17 +22,15 @@ const ServiceDetail: React.FC = () => {
   const [isPolling, setIsPolling] = useState(false);
   const [lastAction, setLastAction] = useState<'start' | 'stop' | 'restart' | 'down' | null>(null);
   const [selectedLogFile, setSelectedLogFile] = useState<string | null>(null);
-  const [logLines, setLogLines] = useState<string[]>([]);
   const [nextLineToFetch, setNextLineToFetch] = useState<number | null>(null);
   const [timeRange, setTimeRange] = useState<[Date | null, Date | null]>([null, null]);
-  const [liveLogs, setLiveLogs] = useState<string[]>([]);
+  const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
   const [isAutoUpdateOn, setIsAutoUpdateOn] = useState(false);
   const [isAutoScrollOn, setIsAutoScrollOn] = useState(true);
   const [ws, setWs] = useState<WebSocket | null>(null);
-  const [timeTravelLogs, setTimeTravelLogs] = useState<string[]>([]);
   const [timeTravelTotal, setTimeTravelTotal] = useState<number>(0);
-  const [activeLogView, setActiveLogView] = useState<'history' | 'timeTravel' | 'live'>('history');
   const logContainerRef = useRef<HTMLDivElement | null>(null);
+  const ignoreScrollEventRef = useRef(false);
 
   const { data: statusData, isLoading: isStatusLoading } = useQuery<ServiceStatus, Error>({
     queryKey: ['serviceStatus', name],
@@ -61,7 +59,7 @@ const ServiceDetail: React.FC = () => {
 
   useEffect(() => {
     if (initialLogData) {
-      setLogLines(initialLogData ?? []);
+      setConsoleLogs(initialLogData ?? []);
       setNextLineToFetch(0);
     }
   }, [initialLogData]);
@@ -136,9 +134,9 @@ const ServiceDetail: React.FC = () => {
     },
     onSuccess: (data, variables) => {
       if (variables.offset === 0) {
-        setTimeTravelLogs(data.lines);
+        setConsoleLogs(data.lines);
       } else {
-        setTimeTravelLogs(prev => [...prev, ...data.lines]);
+        setConsoleLogs(prev => [...prev, ...data.lines]);
       }
       setTimeTravelTotal(data.total);
       message.success(`Log search completed. Found ${data.total} lines.`);
@@ -151,7 +149,7 @@ const ServiceDetail: React.FC = () => {
   const handleTimeTravelSearch = () => {
     if (timeRange[0] && timeRange[1]) {
       // Reset state for new search
-      setTimeTravelLogs([]);
+      setConsoleLogs([]);
       setTimeTravelTotal(0);
       searchMutation.mutate({
         from: timeRange[0].toISOString(),
@@ -168,7 +166,7 @@ const ServiceDetail: React.FC = () => {
       searchMutation.mutate({
         from: timeRange[0].toISOString(),
         to: timeRange[1].toISOString(),
-        offset: timeTravelLogs.length,
+        offset: consoleLogs.length,
       });
     }
   };
@@ -177,7 +175,7 @@ const ServiceDetail: React.FC = () => {
     if (name && selectedLogFile && nextLineToFetch !== null) {
       try {
         const data = await readLogFile(name, selectedLogFile, nextLineToFetch);
-        setLogLines(prev => [...(data ?? []), ...prev]);
+        setConsoleLogs(prev => [...(data ?? []), ...prev]);
         setNextLineToFetch(nextLineToFetch - 100);
       } catch (error) {
         message.error('Failed to load more log lines.');
@@ -193,13 +191,12 @@ const ServiceDetail: React.FC = () => {
         setIsAutoUpdateOn(false);
         return;
       }
-      setActiveLogView('live');
       const newWs = new WebSocket(`ws://${window.location.hostname}:3000/ws/logs/${name}?file=${selectedLogFile}`);
       newWs.onopen = () => {
         message.success('Auto-update started.');
       };
       newWs.onmessage = (event) => {
-        setLiveLogs(prev => [...prev, event.data]);
+        setConsoleLogs(prev => [...prev, event.data]);
       };
       newWs.onclose = () => {
         message.info('Auto-update stopped.');
@@ -220,18 +217,24 @@ const ServiceDetail: React.FC = () => {
   useEffect(() => {
     const logContainer = logContainerRef.current;
     if (logContainer && isAutoScrollOn) {
+      ignoreScrollEventRef.current = true;
       logContainer.scrollTop = logContainer.scrollHeight;
     }
-  }, [liveLogs, timeTravelLogs, logLines, isAutoScrollOn]);
+  }, [consoleLogs, isAutoScrollOn]);
 
   const handleScroll = () => {
+    if (ignoreScrollEventRef.current) {
+      ignoreScrollEventRef.current = false;
+      return;
+    }
     const logContainer = logContainerRef.current;
     if (logContainer) {
-      const isScrolledToBottom = Math.abs(logContainer.scrollHeight - logContainer.scrollTop - logContainer.clientHeight) < 2;
-      if (isScrolledToBottom) {
-        setIsAutoScrollOn(true);
-      } else {
+      const isScrolledToBottom = Math.abs(logContainer.scrollHeight - logContainer.scrollTop - logContainer.clientHeight) < 1;
+      if (!isScrolledToBottom && isAutoScrollOn) {
         setIsAutoScrollOn(false);
+      }
+      if (isScrolledToBottom && !isAutoScrollOn) {
+        setIsAutoScrollOn(true);
       }
     }
   };
@@ -288,9 +291,8 @@ const ServiceDetail: React.FC = () => {
                     placeholder="Select a log file"
                     onChange={(value) => {
                         setSelectedLogFile(value);
-                        setActiveLogView('history');
-                        setLiveLogs([]);
-                        setTimeTravelLogs([]);
+                        setConsoleLogs([]);
+                        setTimeTravelTotal(0);
                     }}
                     loading={isLogFilesLoading}
                     options={logFilesData?.map(file => ({ label: file, value: file }))}
@@ -298,10 +300,10 @@ const ServiceDetail: React.FC = () => {
                 />
                 <DatePicker showTime onChange={(date) => setTimeRange(prev => [date ? date.toDate() : null, prev[1]])} placeholder="Start time" />
                 <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date ? date.toDate() : null])} placeholder="End time" />
-                <Button type="primary" onClick={() => { setActiveLogView('timeTravel'); handleTimeTravelSearch(); }} loading={searchMutation.isPending && activeLogView === 'timeTravel'} disabled={!selectedLogFile}>
+                <Button type="primary" onClick={handleTimeTravelSearch} loading={searchMutation.isPending} disabled={!selectedLogFile}>
                     Search
                 </Button>
-                <Button onClick={() => { setActiveLogView('history'); handleLoadMore(); }} disabled={nextLineToFetch === null || activeLogView !== 'history'}>
+                <Button onClick={handleLoadMore} disabled={nextLineToFetch === null}>
                     Load More Previous
                 </Button>
             </div>
@@ -323,18 +325,16 @@ const ServiceDetail: React.FC = () => {
         </div>
 
         <div ref={logContainerRef} onScroll={handleScroll} style={{ background: '#000', color: '#fff', padding: '8px', marginTop: '16px', maxHeight: '600px', overflowY: 'auto', fontFamily: 'monospace' }}>
-            {isInitialLogLoading && activeLogView === 'history' ? <Spin /> : (
+            {isInitialLogLoading ? <Spin /> : (
                 <pre><code>
-                    {activeLogView === 'live' && liveLogs.join('\n')}
-                    {activeLogView === 'timeTravel' && timeTravelLogs.join('\n')}
-                    {activeLogView === 'history' && logLines.join('\n')}
+                    {consoleLogs.join('\n')}
                 </code></pre>
             )}
-            {searchMutation.isPending && activeLogView === 'timeTravel' && <Spin />}
+            {searchMutation.isPending && <Spin />}
         </div>
-        {activeLogView === 'timeTravel' && timeTravelLogs.length < timeTravelTotal && (
+        {consoleLogs.length > 0 && consoleLogs.length < timeTravelTotal && (
             <Button onClick={handleTimeTravelLoadMore} style={{ marginTop: 8 }} loading={searchMutation.isPending}>
-                Show More ({timeTravelLogs.length} / {timeTravelTotal})
+                Show More ({consoleLogs.length} / {timeTravelTotal})
             </Button>
         )}
       </Card>
