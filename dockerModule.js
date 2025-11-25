@@ -347,6 +347,20 @@ class DockerModule {
         return result;
     }
 
+    async getServiceConfigData(serviceName) {
+        if (!(await this.#checkServiceExists(serviceName))) return {};
+        
+        try {
+            const serviceDir = path.join(this.#containerDir, serviceName);
+            const configData = await ConfigUtils.getConfigData(serviceDir);
+            return configData;
+        }
+        catch (error) {
+            console.error(`Error getting config data for service "${serviceName}": ${error.message}`);
+            return {"error": true, "message": error.message};
+        }
+    }
+
     /**
      * @param {string} serviceName 
      * @returns {Promise<Array<string>>}
