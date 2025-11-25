@@ -317,12 +317,13 @@ const ServiceDetail: React.FC = () => {
             {/* <Button onClick={() => handlePowerAction('down')} danger disabled={isPending} loading={isPending && variables === 'down'}>Down</Button> */}
           </div>
         </Card>
+        {configDataFromUtils.network && <NetworkConfig network={configDataFromUtils.network} />}
         <Card title="Configuration" style={{ marginBottom: 24 }}>
           {isConfigDataLoading ? (
             <Spin />
           ) : configDataFromUtils && !configDataFromUtils.error ? (
             <div>
-              {configDataFromUtils.network && <NetworkConfig network={configDataFromUtils.network} />}
+              
               <Tabs
                 defaultActiveKey="1"
                 items={[
