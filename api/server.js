@@ -61,6 +61,17 @@ app.get('/api/services/:name/config', async (req, res) => {
     }
 });
 
+// GET /api/services/:name/config-data - Get service configuration data
+app.get('/api/services/:name/config-data', async (req, res) => {
+    try {
+        const { name } = req.params;
+        const config = await DockerModule.getServiceConfigData(name);
+        res.json(config);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 
 // --- Log Management Endpoints ---
 

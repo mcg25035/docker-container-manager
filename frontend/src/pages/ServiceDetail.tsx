@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button, message, notification, Card, Spin, Badge, Tabs, Table, Select, DatePicker, Form, Switch, Input } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getServiceStatus, powerAction, getServiceConfig, getLogFiles, readLogFile, searchLogLinesByTimeRange } from '../api/client';
+import { getServiceStatus, powerAction, getServiceConfig, getServiceConfigData, getLogFiles, readLogFile, searchLogLinesByTimeRange } from '../api/client';
 import type { SearchLogResult } from '../api/client';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import yaml from 'js-yaml';
@@ -44,6 +44,12 @@ const ServiceDetail: React.FC = () => {
     queryKey: ['serviceConfig', name],
     queryFn: () => getServiceConfig(name!),
     enabled: !!name, // FIX: Prevent query from running if name is undefined
+  });
+
+  const { data: configDataFromUtils, isLoading: isConfigDataLoading, error: configDataError } = useQuery({
+    queryKey: ['serviceConfigData', name],
+    queryFn: () => getServiceConfigData(name!),
+    enabled: !!name,
   });
 
   const { data: logFilesData, isLoading: isLogFilesLoading } = useQuery<string[], Error>({
@@ -285,30 +291,63 @@ const ServiceDetail: React.FC = () => {
           </div>
         </Card>
         <Card title="Configuration" style={{ marginBottom: 24 }}>
-          {isConfigLoading ? (
+          {isConfigDataLoading ? (
             <Spin />
-          ) : configError ? (
-            <div>Error loading configuration: {configError.message}</div>
-          ) : (
+          ) : configDataFromUtils && !configDataFromUtils.error ? (
             <Tabs
               defaultActiveKey="1"
               items={[
                 {
                   key: '1',
                   label: 'Configurations',
-                  children: <Table dataSource={otherConfigs} columns={columns} pagination={false} />,
+                  children: <Table dataSource={Object.entries(configDataFromUtils)
+                    .filter(([, value]) => typeof value !== 'object')
+                    .map(([key, value], index) => ({
+                      key: `config-data-${index}`,
+                      name: key,
+                      value: String(value),
+                    }))} columns={columns} pagination={false} />,
                 },
                 {
                   key: '2',
                   label: 'docker-compose.yml',
                   children: (
                     <SyntaxHighlighter language="yaml">
-                      {configData?.dockerCompose ? yaml.dump(configData.dockerCompose) : ''}
+                      {configDataFromUtils?.dockerCompose ? yaml.dump(configDataFromUtils.dockerCompose) : ''}
                     </SyntaxHighlighter>
                   ),
                 },
               ]}
             />
+          ) : (
+            <>
+              {configDataError && (
+                <div style={{ color: 'red', marginBottom: '16px' }}>
+                  Error loading dynamic configuration: {configDataError.message}. Falling back to static config.
+                </div>
+              )}
+              {isConfigLoading ? <Spin /> : (
+                <Tabs
+                  defaultActiveKey="1"
+                  items={[
+                    {
+                      key: '1',
+                      label: 'Configurations',
+                      children: <Table dataSource={otherConfigs} columns={columns} pagination={false} />,
+                    },
+                    {
+                      key: '2',
+                      label: 'docker-compose.yml',
+                      children: (
+                        <SyntaxHighlighter language="yaml">
+                          {configData?.dockerCompose ? yaml.dump(configData.dockerCompose) : ''}
+                        </SyntaxHighlighter>
+                      ),
+                    },
+                  ]}
+                />
+              )}
+            </>
           )}
         </Card>
         <Card
