@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card } from 'antd';
-import { LaptopOutlined, ContainerOutlined, ArrowRightOutlined, CodeSandboxOutlined } from '@ant-design/icons';
+import { LaptopOutlined, ContainerOutlined, ArrowRightOutlined, CodeSandboxOutlined, GlobalOutlined } from '@ant-design/icons';
 
 interface NetworkConfigProps {
   network: {
@@ -24,16 +24,22 @@ const NetworkConfig: React.FC<NetworkConfigProps> = ({ network }) => {
       <ArrowRightOutlined style={{ fontSize: '24px', margin: '0 20px' }} />
       <div>
         <CodeSandboxOutlined style={{ fontSize: '48px' }} />
-        <p>{network.internalNetSegment}.0.114:{network.mappingSrcPort}<br /> docker </p>
+        <p>{network.internalNetSegment}.0.114:{network.mappingSrcPort}<br /> container </p>
       </div>
     </div>
   );
 
   const renderExternal = () => (
-    <div style={{ textAlign: 'center' }}>
-      <CodeSandboxOutlined style={{ fontSize: '48px' }} />
-      {network.externalIPv4 && <p>IPv4: {network.externalIPv4}</p>}
-      {network.externalIPv6 && <p>IPv6: {network.externalIPv6}</p>}
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', textAlign: 'center' }}>
+      <div>
+        <GlobalOutlined style={{ fontSize: '48px' }} />
+        <p>{network.externalIPv4}<br />{network.externalIPv6}</p>
+      </div>
+      <ArrowRightOutlined style={{ fontSize: '24px', margin: '0 20px' }} />
+      <div>
+        <CodeSandboxOutlined style={{ fontSize: '48px' }} />
+        <p> container </p>
+      </div>
     </div>
   );
 
