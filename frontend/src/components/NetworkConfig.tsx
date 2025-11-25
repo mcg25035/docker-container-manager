@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card } from 'antd';
-import { LaptopOutlined, ContainerOutlined, ArrowRightOutlined } from '@ant-design/icons';
+import { LaptopOutlined, ContainerOutlined, ArrowRightOutlined, CodeSandboxOutlined } from '@ant-design/icons';
 
 interface NetworkConfigProps {
   network: {
@@ -23,8 +23,8 @@ const NetworkConfig: React.FC<NetworkConfigProps> = ({ network }) => {
       </div>
       <ArrowRightOutlined style={{ fontSize: '24px', margin: '0 20px' }} />
       <div>
-        <ContainerOutlined style={{ fontSize: '48px' }} />
-        <p>:{network.mappingSrcPort}</p>
+        <CodeSandboxOutlined style={{ fontSize: '48px' }} />
+        <p>container:{network.mappingSrcPort}</p>
         <p>{network.internalNetSegment}</p>
       </div>
     </div>
@@ -32,7 +32,7 @@ const NetworkConfig: React.FC<NetworkConfigProps> = ({ network }) => {
 
   const renderExternal = () => (
     <div style={{ textAlign: 'center' }}>
-      <ContainerOutlined style={{ fontSize: '48px' }} />
+      <CodeSandboxOutlined style={{ fontSize: '48px' }} />
       {network.externalIPv4 && <p>IPv4: {network.externalIPv4}</p>}
       {network.externalIPv6 && <p>IPv6: {network.externalIPv6}</p>}
     </div>
