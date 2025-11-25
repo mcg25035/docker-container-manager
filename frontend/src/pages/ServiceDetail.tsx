@@ -6,6 +6,7 @@ import { getServiceStatus, powerAction, getServiceConfig, getServiceConfigData, 
 import type { SearchLogResult } from '../api/client';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import yaml from 'js-yaml';
+import NetworkConfig from '../components/NetworkConfig';
 
 interface ServiceStatus {
   status: 'Up' | 'Down';
@@ -91,7 +92,7 @@ const ServiceDetail: React.FC = () => {
     const flatten = (obj: any, path: string = '') => {
         if (!obj || typeof obj !== 'object') return;
         Object.keys(obj).forEach(key => {
-            if (key === 'dockerCompose' || key === 'error' || key === 'message') return;
+            if (key === 'dockerCompose' || key === 'error' || key === 'message' || key === 'network') return;
 
             const newPath = path ? `${path}.${key}` : key;
             const value = obj[key];
@@ -320,25 +321,28 @@ const ServiceDetail: React.FC = () => {
           {isConfigDataLoading ? (
             <Spin />
           ) : configDataFromUtils && !configDataFromUtils.error ? (
-            <Tabs
-              defaultActiveKey="1"
-              items={[
-                {
-                  key: '1',
-                  label: 'Configurations',
-                  children: <Table dataSource={generateTableData(configDataFromUtils)} columns={columns} pagination={false} />,
-                },
-                {
-                  key: '2',
-                  label: 'docker-compose.yml',
-                  children: (
-                    <SyntaxHighlighter language="yaml">
-                      {configDataFromUtils?.dockerCompose ? yaml.dump(configDataFromUtils.dockerCompose) : ''}
-                    </SyntaxHighlighter>
-                  ),
-                },
-              ]}
-            />
+            <div>
+              {configDataFromUtils.network && <NetworkConfig network={configDataFromUtils.network} />}
+              <Tabs
+                defaultActiveKey="1"
+                items={[
+                  {
+                    key: '1',
+                    label: 'Configurations',
+                    children: <Table dataSource={generateTableData(configDataFromUtils)} columns={columns} pagination={false} />,
+                  },
+                  {
+                    key: '2',
+                    label: 'docker-compose.yml',
+                    children: (
+                      <SyntaxHighlighter language="yaml">
+                        {configDataFromUtils?.dockerCompose ? yaml.dump(configDataFromUtils.dockerCompose) : ''}
+                      </SyntaxHighlighter>
+                    ),
+                  },
+                ]}
+              />
+            </div>
           ) : (
             <>
               {configDataError && (
