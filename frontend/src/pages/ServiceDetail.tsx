@@ -86,6 +86,32 @@ const ServiceDetail: React.FC = () => {
     { title: 'Value', dataIndex: 'value', key: 'value' },
   ];
 
+  const generateTableData = (config: Record<string, any>): { key: string; name: string; value: string }[] => {
+    const flattened: { name: string, value: string }[] = [];
+    const flatten = (obj: any, path: string = '') => {
+        if (!obj || typeof obj !== 'object') return;
+        Object.keys(obj).forEach(key => {
+            if (key === 'dockerCompose' || key === 'error' || key === 'message') return;
+
+            const newPath = path ? `${path}.${key}` : key;
+            const value = obj[key];
+            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                flatten(value, newPath);
+            } else {
+                flattened.push({
+                    name: newPath,
+                    value: String(value),
+                });
+            }
+        });
+    };
+    flatten(config);
+    return flattened.map((item, index) => ({
+        ...item,
+        key: `config-data-${index}`,
+    }));
+  };
+
   useEffect(() => {
     if (statusData) {
       if ((lastAction === 'start' && statusData.status === 'Up') ||
@@ -300,13 +326,7 @@ const ServiceDetail: React.FC = () => {
                 {
                   key: '1',
                   label: 'Configurations',
-                  children: <Table dataSource={Object.entries(configDataFromUtils)
-                    .filter(([, value]) => typeof value !== 'object')
-                    .map(([key, value], index) => ({
-                      key: `config-data-${index}`,
-                      name: key,
-                      value: String(value),
-                    }))} columns={columns} pagination={false} />,
+                  children: <Table dataSource={generateTableData(configDataFromUtils)} columns={columns} pagination={false} />,
                 },
                 {
                   key: '2',
