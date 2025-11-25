@@ -1,5 +1,4 @@
 import React from 'react';
-import { Card } from 'antd';
 import { LaptopOutlined, ContainerOutlined, ArrowRightOutlined, CodeSandboxOutlined, GlobalOutlined, DockerOutlined } from '@ant-design/icons';
 
 interface NetworkConfigProps {
@@ -43,11 +42,7 @@ const NetworkConfig: React.FC<NetworkConfigProps> = ({ network }) => {
     </div>
   );
 
-  return (
-    <Card title="Network Configuration">
-      {network.type === 'internal' ? renderInternal() : renderExternal()}
-    </Card>
-  );
+  return network.type === 'internal' ? renderInternal() : renderExternal();
 };
 
 export default NetworkConfig;
