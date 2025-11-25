@@ -69,6 +69,16 @@ let tests = [
         console.log(`Logs for ${serviceName}:`, logs);
         return TestResult.MANUALLY_VERIFY;
     },
+    async function testGetServiceConfigData() {
+        const serviceNames = ["test1", "test2"];
+        for (let serviceName of serviceNames) {
+            console.log(`Fetching config data for service: ${serviceName}`);
+            const configData = await DockerModule.getServiceConfigData(serviceName);
+            console.log(`Config data for ${serviceName}:`, configData);
+        }
+        return TestResult.MANUALLY_VERIFY;
+
+    },
     async function testMonitorServiceLogs() {
         const serviceName = "rc-backend-prod";
         const logFileName = "app-2025-11-01_22-06-04.log.10";
