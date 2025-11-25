@@ -24,8 +24,7 @@ const NetworkConfig: React.FC<NetworkConfigProps> = ({ network }) => {
       <ArrowRightOutlined style={{ fontSize: '24px', margin: '0 20px' }} />
       <div>
         <CodeSandboxOutlined style={{ fontSize: '48px' }} />
-        <p>container:{network.mappingSrcPort}</p>
-        <p>{network.internalNetSegment}</p>
+        <p>{network.internalNetSegment}.0.114:{network.mappingSrcPort}<br /> docker </p>
       </div>
     </div>
   );
