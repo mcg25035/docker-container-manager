@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const tail = require('tail').Tail;
 const moment = require('moment-timezone');
+const { parse, stringify } = require('envfile');
 const EnvUtils = require('./utils/envUtils');
 const YmlUtils = require('./utils/ymlUtils');
 const ConfigUtils = require('./utils/configUtils');
@@ -345,6 +346,34 @@ class DockerModule {
         }
 
         return result;
+    }
+
+    /**
+     * @param {string} serviceName 
+     * @param {Object} envData 
+     * @returns {Promise<{success: boolean, message: string}>}
+     */
+    async writeServiceEnvConfig(serviceName, envData) {
+        if (!(await this.#checkServiceExists(serviceName))) return { success: false, message: 'Service not found' };
+        
+        let envPath = path.join(this.#containerDir, serviceName, '.env');
+        try {
+            let existingEnv = {};
+            if (fs.existsSync(envPath)) {
+                existingEnv = await EnvUtils.loadFromPath(envPath);
+            }
+
+            const mergedEnv = { ...existingEnv, ...envData };
+            const envString = stringify(mergedEnv);
+
+            await fs.promises.writeFile(envPath, envString, 'utf-8');
+
+            return { success: true, message: 'Environment configuration updated successfully.' };
+
+        } catch (error) {
+            console.error(`Error writing .env for service "${serviceName}": ${error.message}`);
+            return { success: false, message: `Error writing .env: ${error.message}` };
+        }
     }
 
     async getServiceConfigData(serviceName) {

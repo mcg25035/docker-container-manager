@@ -127,6 +127,25 @@ let tests = [
         }
         
         return TestResult.MANUALLY_VERIFY;
+    },
+    async function testWriteEnvConfig() {
+        const serviceName = "test1";
+        const envConfig = {
+            MODE: "production",
+            NODE_VERSION: 20,
+            GIT_REPO_URL: "https://github.com/example/repo",
+            GIT_BRANCH: "main",
+            RUNNER_TOKEN: "new_secure_token_12345",
+            NODE_INIT_COMMAND: "npm install",
+            STARTUP_COMMAND: "node server.js",
+            ENV_FILE: ".env.production",
+            TZ: "Asia/Taipei"
+        };
+        
+        console.log(`Writing .env config for service: ${serviceName}`);
+        await DockerModule.writeEnvConfig(serviceName, envConfig);
+        console.log(`.env config written successfully.`);
+        return TestResult.MANUALLY_VERIFY;
     }
     
 ];
