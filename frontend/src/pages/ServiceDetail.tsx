@@ -334,7 +334,7 @@ const ServiceDetail: React.FC = () => {
                   {
                     key: '1',
                     label: 'Configurations',
-                    children: <Table dataSource={generateTableData(configDataFromUtils)} columns={columns} pagination={false} />,
+                    children: <Table dataSource={otherConfigs} columns={columns} pagination={false} />,
                   },
                   {
                     key: '2',
