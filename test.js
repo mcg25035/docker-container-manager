@@ -143,7 +143,7 @@ let tests = [
         };
         
         console.log(`Writing .env config for service: ${serviceName}`);
-        await DockerModule.writeEnvConfig(serviceName, envConfig);
+        await DockerModule.writeServiceEnvConfig(serviceName, envConfig);
         console.log(`.env config written successfully.`);
         return TestResult.MANUALLY_VERIFY;
     }
