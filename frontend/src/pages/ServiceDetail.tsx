@@ -326,28 +326,8 @@ const ServiceDetail: React.FC = () => {
         <Card title="Configuration" style={{ marginBottom: 24 }}>
           {isConfigDataLoading ? (
             <Spin />
-          ) : configDataFromUtils && !configDataFromUtils.error ? (
-            <div>
-              <Tabs
-                defaultActiveKey="1"
-                items={[
-                  {
-                    key: '1',
-                    label: 'Configurations',
-                    children: <Table dataSource={otherConfigs} columns={columns} pagination={false} />,
-                  },
-                  {
-                    key: '2',
-                    label: 'docker-compose.yml',
-                    children: (
-                      <SyntaxHighlighter language="yaml">
-                        {configDataFromUtils?.dockerCompose ? yaml.dump(configDataFromUtils.dockerCompose) : ''}
-                      </SyntaxHighlighter>
-                    ),
-                  },
-                ]}
-              />
-            </div>
+          ) : configDataFromUtils && !configDataFromUtils.error && name && (configData?.dockerCompose as any)?.services?.[name]?.image?.startsWith('c0dingbear/nodejs-runner-for-ricecall:') ? (
+            <Table dataSource={otherConfigs} columns={columns} pagination={false} />
           ) : (
             <>
               {configDataError && (
