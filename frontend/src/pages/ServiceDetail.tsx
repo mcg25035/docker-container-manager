@@ -7,6 +7,7 @@ import type { SearchLogResult } from '../api/client';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import yaml from 'js-yaml';
 import NetworkConfig from '../components/NetworkConfig';
+import extensions from '../extensions';
 
 interface ServiceStatus {
   status: 'Up' | 'Down';
@@ -112,6 +113,19 @@ const ServiceDetail: React.FC = () => {
         key: `config-data-${index}`,
     }));
   };
+
+  const getExtensionComponent = () => {
+    if (!name || !configData) return null;
+
+    const image = (configData?.dockerCompose as any)?.services?.[name]?.image;
+    if (!image) return null;
+
+    const extensionKey = Object.keys(extensions).find(prefix => image.startsWith(prefix));
+    if (!extensionKey) return null;
+
+    const ExtensionComponent = extensions[extensionKey].component;
+    return <ExtensionComponent dataSource={otherConfigs} columns={columns} />;
+  }
 
   useEffect(() => {
     if (statusData) {
@@ -326,8 +340,8 @@ const ServiceDetail: React.FC = () => {
         <Card title="Configuration" style={{ marginBottom: 24 }}>
           {isConfigDataLoading ? (
             <Spin />
-          ) : configDataFromUtils && !configDataFromUtils.error && name && (configData?.dockerCompose as any)?.services?.[name]?.image?.startsWith('c0dingbear/nodejs-runner-for-ricecall:') ? (
-            <Table dataSource={otherConfigs} columns={columns} pagination={false} />
+          ) : configDataFromUtils && !configDataFromUtils.error && getExtensionComponent() ? (
+            getExtensionComponent()
           ) : (
             <>
               {configDataError && (
