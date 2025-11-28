@@ -10,6 +10,7 @@ export const getServiceStatus = (name: string) => apiClient.get(`/services/${nam
 
 export const getServiceConfig = (name: string) => apiClient.get(`/services/${name}/config`).then(res => res.data);
 export const getServiceConfigData = (name: string) => apiClient.get(`/services/${name}/config-data`).then(res => res.data);
+export const writeServiceEnvConfig = (name: string, envData: object) => apiClient.post(`/services/${name}/config/env`, { envData });
 export const powerAction = (name: string, action: 'start' | 'stop' | 'restart' | 'down') => apiClient.post(`/services/${name}/power`, { action });
 export const getLogFiles = (name: string) => apiClient.get(`/services/${name}/logs/files`).then(res => res.data);
 

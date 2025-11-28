@@ -117,14 +117,23 @@ const ServiceDetail: React.FC = () => {
   const getExtensionComponent = () => {
     if (!name || !configData) return null;
 
+    // Prioritize specific extensions if they exist
     const image = (configData?.dockerCompose as any)?.services?.[name]?.image;
-    if (!image) return null;
+    if (image) {
+      const extensionKey = Object.keys(extensions).find(prefix => image.startsWith(prefix) && prefix !== 'config-editor');
+      if (extensionKey) {
+        const ExtensionComponent = extensions[extensionKey].component;
+        return <ExtensionComponent dataSource={otherConfigs} columns={columns} />;
+      }
+    }
+    
+    // Fallback to the generic config editor
+    if (extensions['config-editor']) {
+        const ExtensionComponent = extensions['config-editor'].component;
+        return <ExtensionComponent dataSource={otherConfigs} columns={columns} />;
+    }
 
-    const extensionKey = Object.keys(extensions).find(prefix => image.startsWith(prefix));
-    if (!extensionKey) return null;
-
-    const ExtensionComponent = extensions[extensionKey].component;
-    return <ExtensionComponent dataSource={otherConfigs} columns={columns} />;
+    return null;
   }
 
   useEffect(() => {

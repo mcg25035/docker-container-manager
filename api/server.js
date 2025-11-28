@@ -72,6 +72,18 @@ app.get('/api/services/:name/config-data', async (req, res) => {
     }
 });
 
+// POST /api/services/:name/config/env - Write service env configuration
+app.post('/api/services/:name/config/env', async (req, res) => {
+    try {
+        const { name } = req.params;
+        const { envData } = req.body;
+        const result = await DockerModule.writeServiceEnvConfig(name, envData);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 
 // --- Log Management Endpoints ---
 
