@@ -326,6 +326,11 @@ const ServiceDetail: React.FC = () => {
     return { label, value: file };
   });
 
+  const selectedLogFileIndex = logFiles.findIndex(f => f === selectedLogFile);
+  const selectedLogTimeRange = selectedLogFileIndex >= 0 ? logFileTimeRanges[selectedLogFileIndex]?.data : null;
+  // If we have a start time, we assume the log is supported for time-based operations.
+  const isTimeSupported = selectedLogTimeRange?.start !== null && selectedLogTimeRange?.start !== undefined;
+
   return (
     <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', height: '100vh', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -423,8 +428,12 @@ const ServiceDetail: React.FC = () => {
                 options={logFileOptions}
                 value={selectedLogFile}
               />
-              <DatePicker showTime onChange={(date) => setTimeRange(prev => [date ? date.toDate() : null, prev[1]])} placeholder="Start time" />
-              <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date ? date.toDate() : null])} placeholder="End time" />
+              {isTimeSupported && (
+                <>
+                  <DatePicker showTime onChange={(date) => setTimeRange(prev => [date ? date.toDate() : null, prev[1]])} placeholder="Start time" />
+                  <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date ? date.toDate() : null])} placeholder="End time" />
+                </>
+              )}
               <Input
                 placeholder="Search logs"
                 value={searchTerm}
