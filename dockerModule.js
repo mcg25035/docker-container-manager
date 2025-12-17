@@ -401,7 +401,9 @@ class DockerModule {
         if (!fs.existsSync(targetDir)) return [];
 
         let logFiles = await fs.promises.readdir(targetDir);
-        logFiles = logFiles.filter(file => fs.statSync(path.join(targetDir, file)).isFile());
+        logFiles = logFiles.filter(file => 
+            fs.statSync(path.join(targetDir, file)).isFile() && !file.endsWith('.timecache')
+        );
         return logFiles;
     }
 
