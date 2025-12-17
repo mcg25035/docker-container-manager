@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button, message, notification, Card, Spin, Badge, Tabs, Table, Select, DatePicker, Form, Switch, Input } from 'antd';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getServiceStatus, powerAction, getServiceConfig, getServiceConfigData, getLogFiles, readLogFile, searchLogLinesByTimeRange } from '../api/client';
+import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query';
+import { getServiceStatus, powerAction, getServiceConfig, getServiceConfigData, getLogFiles, readLogFile, searchLogLinesByTimeRange, getLogFileTimeRange } from '../api/client';
 import type { SearchLogResult } from '../api/client';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import yaml from 'js-yaml';
@@ -91,26 +91,26 @@ const ServiceDetail: React.FC = () => {
   const generateTableData = (config: Record<string, any>): { key: string; name: string; value: string }[] => {
     const flattened: { name: string, value: string }[] = [];
     const flatten = (obj: any, path: string = '') => {
-        if (!obj || typeof obj !== 'object') return;
-        Object.keys(obj).forEach(key => {
-            if (key === 'dockerCompose' || key === 'error' || key === 'message' || key === 'network') return;
+      if (!obj || typeof obj !== 'object') return;
+      Object.keys(obj).forEach(key => {
+        if (key === 'dockerCompose' || key === 'error' || key === 'message' || key === 'network') return;
 
-            const newPath = path ? `${path}.${key}` : key;
-            const value = obj[key];
-            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                flatten(value, newPath);
-            } else {
-                flattened.push({
-                    name: newPath,
-                    value: String(value),
-                });
-            }
-        });
+        const newPath = path ? `${path}.${key}` : key;
+        const value = obj[key];
+        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+          flatten(value, newPath);
+        } else {
+          flattened.push({
+            name: newPath,
+            value: String(value),
+          });
+        }
+      });
     };
     flatten(config);
     return flattened.map((item, index) => ({
-        ...item,
-        key: `config-data-${index}`,
+      ...item,
+      key: `config-data-${index}`,
     }));
   };
 
@@ -126,11 +126,11 @@ const ServiceDetail: React.FC = () => {
         return <ExtensionComponent dataSource={otherConfigs} columns={columns} />;
       }
     }
-    
+
     // Fallback to the generic config editor
     if (extensions['config-editor']) {
-        const ExtensionComponent = extensions['config-editor'].component;
-        return <ExtensionComponent dataSource={otherConfigs} columns={columns} />;
+      const ExtensionComponent = extensions['config-editor'].component;
+      return <ExtensionComponent dataSource={otherConfigs} columns={columns} />;
     }
 
     return null;
@@ -139,8 +139,8 @@ const ServiceDetail: React.FC = () => {
   useEffect(() => {
     if (statusData) {
       if ((lastAction === 'start' && statusData.status === 'Up') ||
-          (lastAction === 'stop' && statusData.status === 'Down') ||
-          (lastAction === 'down' && statusData.status === 'Down')) {
+        (lastAction === 'stop' && statusData.status === 'Down') ||
+        (lastAction === 'down' && statusData.status === 'Down')) {
         setIsPolling(false);
         setLastAction(null);
       }
@@ -163,8 +163,8 @@ const ServiceDetail: React.FC = () => {
 
   const { mutate, isPending, variables } = useMutation({
     mutationFn: (action: 'start' | 'stop' | 'restart' | 'down') => {
-        setLastAction(action);
-        return powerAction(name!, action)
+      setLastAction(action);
+      return powerAction(name!, action)
     },
     onSuccess: (_, action) => {
       message.success(`Action '${action}' initiated for ${name}.`);
@@ -304,6 +304,28 @@ const ServiceDetail: React.FC = () => {
     default: '#d9d9d9',
   };
 
+  const logFiles = logFilesData || [];
+  const logFileTimeRanges = useQueries({
+    queries: logFiles.map(file => ({
+      queryKey: ['logTimeRange', name, file],
+      queryFn: () => getLogFileTimeRange(name!, file),
+      enabled: !!name && !!file,
+      staleTime: 1000 * 60 * 5, // Cache for 5 mins
+    }))
+  });
+
+  const logFileOptions = logFiles.map((file, index) => {
+    const query = logFileTimeRanges[index];
+    const data = query?.data;
+    let label = file;
+    if (data && (data.start || data.end)) {
+      const start = data.start ? new Date(data.start).toLocaleString() : '...';
+      const end = data.end ? new Date(data.end).toLocaleString() : '...';
+      label = `${file} (${start} - ${end})`;
+    }
+    return { label, value: file };
+  });
+
   return (
     <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', height: '100vh', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -312,21 +334,21 @@ const ServiceDetail: React.FC = () => {
           {isStatusLoading ? <Spin /> : (
             <div style={{
               backgroundColor: statusColors[statusType],
-            borderRadius: '12px',
-            padding: '4px 12px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}>
-            <span style={{
-              display: 'inline-block',
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: statusDotColors[statusType],
-            }} />
-            <span style={{ color: 'white', fontWeight: 'bold' }}>{statusText}</span>
-          </div>
+              borderRadius: '12px',
+              padding: '4px 12px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}>
+              <span style={{
+                display: 'inline-block',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                backgroundColor: statusDotColors[statusType],
+              }} />
+              <span style={{ color: 'white', fontWeight: 'bold' }}>{statusText}</span>
+            </div>
           )}
         </div>
         <Link to="/"><Button>Back to Dashboard</Button></Link>
@@ -340,7 +362,7 @@ const ServiceDetail: React.FC = () => {
             {/* <Button onClick={() => handlePowerAction('down')} danger disabled={isPending} loading={isPending && variables === 'down'}>Down</Button> */}
           </div>
         </Card>
-        
+
         {configDataFromUtils && !configDataFromUtils.error && configDataFromUtils.network && (
           <Card title="Network Configuration" style={{ marginBottom: 24 }}>
             <NetworkConfig network={configDataFromUtils.network} />
@@ -398,7 +420,7 @@ const ServiceDetail: React.FC = () => {
                   setTimeTravelTotal(0);
                 }}
                 loading={isLogFilesLoading}
-                options={logFilesData?.map(file => ({ label: file, value: file }))}
+                options={logFileOptions}
                 value={selectedLogFile}
               />
               <DatePicker showTime onChange={(date) => setTimeRange(prev => [date ? date.toDate() : null, prev[1]])} placeholder="Start time" />

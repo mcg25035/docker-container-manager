@@ -14,7 +14,7 @@ export const writeServiceEnvConfig = (name: string, envData: object) => apiClien
 export const powerAction = (name: string, action: 'start' | 'stop' | 'restart' | 'down') => apiClient.post(`/services/${name}/power`, { action });
 export const getLogFiles = (name: string) => apiClient.get(`/services/${name}/logs/files`).then(res => res.data);
 
-export const readLogFile = (name: string, file: string, startLine: number) => 
+export const readLogFile = (name: string, file: string, startLine: number) =>
   apiClient.get(`/services/${name}/logs/read`, { params: { file, start: startLine, num: 100 } }).then(res => res.data);
 
 export interface SearchLogResult {
@@ -32,3 +32,11 @@ export const searchLogLinesByTimeRange = (
   search: string,
 ): Promise<SearchLogResult> =>
   apiClient.post(`/services/${name}/logs/search`, { file, from, to, limit, offset, search }).then(res => res.data);
+
+export interface LogFileTimeRange {
+  start: number | null;
+  end: number | null;
+}
+
+export const getLogFileTimeRange = (name: string, file: string): Promise<LogFileTimeRange> =>
+  apiClient.get(`/services/${name}/logs/time-range`, { params: { file } }).then(res => res.data);
