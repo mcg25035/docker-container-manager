@@ -315,9 +315,40 @@ const ServiceDetail: React.FC = () => {
     }))
   });
 
-  const logFileOptions = logFiles.map((file, index) => {
+  const combinedLogData = logFiles.map((file, index) => {
     const query = logFileTimeRanges[index];
-    const data = query?.data;
+    return {
+      file,
+      data: query?.data,
+      isLoading: query?.isLoading
+    };
+  });
+
+  const sortedLogData = [...combinedLogData].sort((a, b) => {
+    const aData = a.data;
+    const bData = b.data;
+
+    // Rule 1: No end_time priority (files without end_time come first)
+    const aHasEnd = aData?.end !== null && aData?.end !== undefined;
+    const bHasEnd = bData?.end !== null && bData?.end !== undefined;
+
+    if (!aHasEnd && bHasEnd) return -1;
+    if (aHasEnd && !bHasEnd) return 1;
+
+    // If both have end_time, sort by end_time desc
+    if (aHasEnd && bHasEnd) {
+      return (bData!.end!) - (aData!.end!);
+    }
+
+    // If neither has end_time (both are active logs?), sort by start_time desc
+    // Treat undefined/null start time as 0 (oldest)
+    const aStart = aData?.start || 0;
+    const bStart = bData?.start || 0;
+    return bStart - aStart;
+  });
+
+  const logFileOptions = sortedLogData.map((item) => {
+    const { file, data } = item;
     let label = file;
     if (data && (data.start || data.end)) {
       const start = data.start ? new Date(data.start).toLocaleString() : '...';
@@ -329,6 +360,7 @@ const ServiceDetail: React.FC = () => {
 
   const selectedLogFileIndex = logFiles.findIndex(f => f === selectedLogFile);
   const selectedLogTimeRange = selectedLogFileIndex >= 0 ? logFileTimeRanges[selectedLogFileIndex]?.data : null;
+
   // If we have a start time, we assume the log is supported for time-based operations.
   const isTimeSupported = selectedLogTimeRange?.start !== null && selectedLogTimeRange?.start !== undefined;
 
