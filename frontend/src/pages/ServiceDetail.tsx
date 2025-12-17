@@ -328,11 +328,25 @@ const ServiceDetail: React.FC = () => {
     const aData = a.data;
     const bData = b.data;
 
+    const aHasStart = aData?.start !== null && aData?.start !== undefined;
+    const aHasEnd = aData?.end !== null && aData?.end !== undefined;
+    const bHasStart = bData?.start !== null && bData?.start !== undefined;
+    const bHasEnd = bData?.end !== null && bData?.end !== undefined;
+
+    // Rule 0: Files with NO time data (neither start nor end) go to the bottom
+    const aHasAnyTime = aHasStart || aHasEnd;
+    const bHasAnyTime = bHasStart || bHasEnd;
+
+    if (aHasAnyTime && !bHasAnyTime) return -1;
+    if (!aHasAnyTime && bHasAnyTime) return 1;
+    if (!aHasAnyTime && !bHasAnyTime) return 0; // Both unknown, keep original order
+
     // Calculate effective end time.
-    // If no end time (active), assume it's "Future" relative to closed logs to ensure they stay at top.
+    // If no end time (active), assume it's "Future" relative to closed logs.
     const now = Date.now();
-    const aEnd = (aData?.end !== null && aData?.end !== undefined) ? aData.end : (now + 1000000);
-    const bEnd = (bData?.end !== null && bData?.end !== undefined) ? bData.end : (now + 1000000);
+
+    const aEnd = aHasEnd ? aData!.end! : (now + 1000000);
+    const bEnd = bHasEnd ? bData!.end! : (now + 1000000);
 
     // Sort by end time descending (closest to now/future first)
     if (aEnd !== bEnd) {
