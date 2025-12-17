@@ -12,7 +12,7 @@ export const getServiceConfig = (name: string) => apiClient.get(`/services/${nam
 export const getServiceConfigData = (name: string) => apiClient.get(`/services/${name}/config-data`).then(res => res.data);
 export const writeServiceEnvConfig = (name: string, envData: object) => apiClient.post(`/services/${name}/config/env`, { envData });
 export const powerAction = (name: string, action: 'start' | 'stop' | 'restart' | 'down') => apiClient.post(`/services/${name}/power`, { action });
-export const getLogFiles = (name: string) => apiClient.get(`/services/${name}/logs/files`).then(res => res.data);
+export const getLogFiles = (name: string) => apiClient.get(`/services/${name}/logs/files`).then(res => res.data.filter((f: string) => !f.endsWith('.timecache')));
 
 export const readLogFile = (name: string, file: string, startLine: number) =>
   apiClient.get(`/services/${name}/logs/read`, { params: { file, start: startLine, num: 100 } }).then(res => res.data);
