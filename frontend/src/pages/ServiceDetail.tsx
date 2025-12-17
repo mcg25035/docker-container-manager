@@ -328,20 +328,18 @@ const ServiceDetail: React.FC = () => {
     const aData = a.data;
     const bData = b.data;
 
-    // Rule 1: No end_time priority (files without end_time come first)
-    const aHasEnd = aData?.end !== null && aData?.end !== undefined;
-    const bHasEnd = bData?.end !== null && bData?.end !== undefined;
+    // Calculate effective end time.
+    // If no end time (active), assume it's "Future" relative to closed logs to ensure they stay at top.
+    const now = Date.now();
+    const aEnd = (aData?.end !== null && aData?.end !== undefined) ? aData.end : (now + 1000000);
+    const bEnd = (bData?.end !== null && bData?.end !== undefined) ? bData.end : (now + 1000000);
 
-    if (!aHasEnd && bHasEnd) return -1;
-    if (aHasEnd && !bHasEnd) return 1;
-
-    // If both have end_time, sort by end_time desc
-    if (aHasEnd && bHasEnd) {
-      return (bData!.end!) - (aData!.end!);
+    // Sort by end time descending (closest to now/future first)
+    if (aEnd !== bEnd) {
+      return bEnd - aEnd;
     }
 
-    // If neither has end_time (both are active logs?), sort by start_time desc
-    // Treat undefined/null start time as 0 (oldest)
+    // Tie breaker: start time descending (younger one first)
     const aStart = aData?.start || 0;
     const bStart = bData?.start || 0;
     return bStart - aStart;
