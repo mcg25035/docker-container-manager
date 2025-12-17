@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { CopyOutlined } from '@ant-design/icons';
 import { Button, message, notification, Card, Spin, Badge, Tabs, Table, Select, DatePicker, Form, Switch, Input } from 'antd';
 import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query';
 import { getServiceStatus, powerAction, getServiceConfig, getServiceConfigData, getLogFiles, readLogFile, searchLogLinesByTimeRange, getLogFileTimeRange } from '../api/client';
@@ -213,6 +214,16 @@ const ServiceDetail: React.FC = () => {
       to: timeRange[1] ? timeRange[1].toISOString() : null,
       offset: 0,
     });
+  };
+
+  const handleCopyAll = () => {
+    if (consoleLogs.length === 0) {
+      message.info('No logs to copy');
+      return;
+    }
+    navigator.clipboard.writeText(consoleLogs.join('\n'))
+      .then(() => message.success('Logs copied'))
+      .catch(() => message.error('Failed to copy logs'));
   };
 
   const handleTimeTravelLoadMore = () => {
@@ -499,6 +510,7 @@ const ServiceDetail: React.FC = () => {
               </Button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <Button icon={<CopyOutlined />} onClick={handleCopyAll} disabled={consoleLogs.length === 0}>Copy All</Button>
               <Form.Item label="Auto-update" style={{ marginBottom: 0 }}>
                 <Switch
                   checked={isAutoUpdateOn}
