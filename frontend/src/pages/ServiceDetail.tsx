@@ -7,6 +7,7 @@ import type { SearchLogResult } from '../api/client';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import yaml from 'js-yaml';
 import NetworkConfig from '../components/NetworkConfig';
+import TimeRangeSlider from '../components/TimeRangeSlider';
 import extensions from '../extensions';
 
 interface ServiceStatus {
@@ -423,16 +424,24 @@ const ServiceDetail: React.FC = () => {
                   setSelectedLogFile(value);
                   setConsoleLogs([]);
                   setTimeTravelTotal(0);
+                  setTimeRange([null, null]);
                 }}
                 loading={isLogFilesLoading}
                 options={logFileOptions}
                 value={selectedLogFile}
               />
-              {isTimeSupported && (
-                <>
-                  <DatePicker showTime onChange={(date) => setTimeRange(prev => [date ? date.toDate() : null, prev[1]])} placeholder="Start time" />
-                  <DatePicker showTime onChange={(date) => setTimeRange(prev => [prev[0], date ? date.toDate() : null])} placeholder="End time" />
-                </>
+              {isTimeSupported && selectedLogTimeRange && (
+                <div style={{ flex: 1, minWidth: 300, maxWidth: 600, marginLeft: 16, marginRight: 16 }}>
+                  <TimeRangeSlider
+                    startTime={selectedLogTimeRange.start!}
+                    endTime={selectedLogTimeRange.end || Date.now()}
+                    value={[
+                      timeRange[0]?.getTime() ?? selectedLogTimeRange.start!,
+                      timeRange[1]?.getTime() ?? (selectedLogTimeRange.end || Date.now())
+                    ]}
+                    onChange={(val) => setTimeRange([new Date(val[0]), new Date(val[1])])}
+                  />
+                </div>
               )}
               <Input
                 placeholder="Search logs"
