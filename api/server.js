@@ -110,6 +110,21 @@ app.get('/api/services/:name/logs/read', async (req, res) => {
     }
 });
 
+// GET /api/services/:name/logs/time-range
+app.get('/api/services/:name/logs/time-range', async (req, res) => {
+    try {
+        const { name } = req.params;
+        const { file } = req.query;
+        if (!file) {
+             return res.status(400).json({ error: 'File query parameter is required' });
+        }
+        const result = await DockerModule.getLogFileTimeRange(name, file);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // POST /api/services/:name/logs/search - Search log files by time range
 app.post('/api/services/:name/logs/search', async (req, res) => {
     try {

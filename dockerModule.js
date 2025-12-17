@@ -557,6 +557,147 @@ class DockerModule {
     
 
     /**
+     * Find the first valid timestamp in the file.
+     * @param {fs.FileHandle} fileHandle 
+     * @param {number} fileSize 
+     * @returns {Promise<number|null>} Timestamp or null
+     */
+    async #findFirstTimestamp(fileHandle, fileSize) {
+        // Scan up to 50KB from start to find a timestamp
+        const SCAN_LIMIT = 50 * 1024;
+        const scanSize = Math.min(fileSize, SCAN_LIMIT);
+        
+        try {
+            const { nextTs } = await this.#scanForwardForTime(fileHandle, 0, scanSize);
+            return nextTs;
+        } catch (error) {
+            console.error('Error finding first timestamp:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Find the last valid timestamp in the file.
+     * @param {fs.FileHandle} fileHandle 
+     * @param {number} fileSize 
+     * @returns {Promise<number|null>} Timestamp or null
+     */
+    async #findLastTimestamp(fileHandle, fileSize) {
+        // We'll read chunks from the end backwards
+        const CHUNK_SIZE = 10 * 1024; // 10KB
+        let position = fileSize;
+        
+        // Scan up to 50KB from end? Or more? Let's try reasonable amount.
+        const MAX_SCAN_BACK = 100 * 1024; // 100KB
+        const minPos = Math.max(0, fileSize - MAX_SCAN_BACK);
+
+        while (position > minPos) {
+            const readSize = Math.min(CHUNK_SIZE, position - minPos);
+            const startOffset = position - readSize;
+            
+            const buffer = Buffer.alloc(readSize);
+            await fileHandle.read(buffer, 0, readSize, startOffset);
+            const chunk = buffer.toString('utf-8');
+            
+            // We want to find the *last* timestamp in this chunk.
+            const lines = chunk.split('\n');
+            
+            // Iterate backwards
+            for (let i = lines.length - 1; i >= 0; i--) {
+                const line = lines[i];
+                // Regex from #extractTimeAtOffset but strict
+                const timeRegex = /^(\d{1,2}\/\d{1,2}\/\d{4}, \d{1,2}:\d{2}:\d{2} (?:AM|PM))/;
+                const match = line.match(timeRegex);
+                
+                if (match) {
+                     const dateString = match[1];
+                     const tz = moment.tz.guess();
+                     const ts = moment.tz(dateString, "MM/DD/YYYY, hh:mm:ss A", tz).valueOf();
+                     if (!isNaN(ts)) {
+                         return ts;
+                     }
+                }
+            }
+
+            position -= readSize;
+        }
+        
+        return null;
+    }
+
+    /**
+     * Get start and end time of a log file, utilising caching.
+     * @param {string} serviceName 
+     * @param {string} logFileName 
+     * @returns {Promise<{start: number|null, end: number|null}>}
+     */
+    async getLogFileTimeRange(serviceName, logFileName) {
+        if (!(await this.#checkServiceExists(serviceName))) return { start: null, end: null };
+
+        const logFilePath = path.join(this.#containerDir, serviceName, 'logs', logFileName);
+        const cacheFilePath = path.join(this.#containerDir, serviceName, 'logs', `${logFileName}.timecache`);
+
+        if (!fs.existsSync(logFilePath)) {
+            return { start: null, end: null };
+        }
+
+        let cache = { start: null, end: null };
+        try {
+            if (fs.existsSync(cacheFilePath)) {
+                const cacheContent = await fs.promises.readFile(cacheFilePath, 'utf-8');
+                cache = JSON.parse(cacheContent);
+            }
+        } catch (e) {
+            console.warn('Failed to read timecache:', e.message);
+        }
+
+        const isLogFile = logFileName.endsWith('.log');
+        const needsStart = cache.start === null || cache.start === undefined;
+        // We re-check end if it's missing OR if it is the active .log file
+        const needsEnd = (cache.end === null || cache.end === undefined) || isLogFile;
+
+        if (!needsStart && !needsEnd) {
+            return cache;
+        }
+
+        let fileHandle = null;
+        try {
+            fileHandle = await fs.promises.open(logFilePath, 'r');
+            const stats = await fileHandle.stat();
+            const fileSize = stats.size;
+
+            if (needsStart) {
+                const startTs = await this.#findFirstTimestamp(fileHandle, fileSize);
+                if (startTs !== null) {
+                    cache.start = startTs;
+                }
+            }
+
+            if (needsEnd) {
+                const endTs = await this.#findLastTimestamp(fileHandle, fileSize);
+                if (endTs !== null) {
+                    cache.end = endTs;
+                }
+            }
+
+            // Write cache back
+            const cacheToSave = { ...cache };
+            if (isLogFile) {
+                delete cacheToSave.end;
+            }
+
+            await fs.promises.writeFile(cacheFilePath, JSON.stringify(cacheToSave), 'utf-8');
+
+        } catch (error) {
+            console.error(`Error calculating time range for ${logFileName}:`, error);
+        } finally {
+            if (fileHandle) await fileHandle.close();
+        }
+
+        return cache;
+    }
+
+    /**
      * implement in future
      * @param {string} serviceName 
      * @return {Promise<ServiceMetadata>}

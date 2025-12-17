@@ -81,7 +81,7 @@ let tests = [
     },
     async function testMonitorServiceLogs() {
         const serviceName = "rc-backend-prod";
-        const logFileName = "app-2025-11-01_22-06-04.log.10";
+        const logFileName = "app-2025-11-21_20-11-22.log.10";
         
         console.log(`Starting to monitor logs for ${serviceName} - ${logFileName}`);
         
@@ -98,7 +98,7 @@ let tests = [
     },
     async function testGetLogLines() {
         const serviceName = "rc-backend-prod";
-        const logFileName = "app-2025-11-01_22-06-04.log";
+        const logFileName = "app-2025-11-21_20-11-22.log";
         console.log(`Reading last 10 lines from ${serviceName}/${logFileName}`);
         const lines = await DockerModule.getLogLines(serviceName, logFileName, -10, 10);
         console.log(`Lines:`, lines);
@@ -107,7 +107,7 @@ let tests = [
     async function testSearchLogLinesByTimeRange() {
         const serviceName = "rc-backend-prod";
         // Please ensure this file contains logs for the target dates
-        const logFileName = "app-2025-11-01_22-06-04.log"; 
+        const logFileName = "app-2025-11-21_20-11-22.log"; 
         
         const startTime = "11/20/2025, 11:30:00 PM"; 
         const endTime = "11/21/2025, 1:00:00 AM";
@@ -145,6 +145,22 @@ let tests = [
         console.log(`Writing .env config for service: ${serviceName}`);
         await DockerModule.writeServiceEnvConfig(serviceName, envConfig);
         console.log(`.env config written successfully.`);
+        return TestResult.MANUALLY_VERIFY;
+    },
+    async function testGetLogFileTimeRange() {
+        const serviceName = "rc-backend-prod"; 
+        // Use a file that is likely to exist based on other tests
+        const logFileName = "app-2025-11-21_20-11-22.log";
+        const rotatedLogFileName = "app-2025-11-21_20-11-22.log.10";
+
+        console.log(`Getting time range for ${serviceName}/${logFileName}`);
+        const range = await DockerModule.getLogFileTimeRange(serviceName, logFileName);
+        console.log(`Time Range for ${logFileName}:`, range);
+
+        console.log(`Getting time range for ${serviceName}/${rotatedLogFileName}`);
+        const rangeRotated = await DockerModule.getLogFileTimeRange(serviceName, rotatedLogFileName);
+        console.log(`Time Range for ${rotatedLogFileName}:`, rangeRotated);
+        
         return TestResult.MANUALLY_VERIFY;
     }
     
