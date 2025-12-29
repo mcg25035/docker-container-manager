@@ -603,6 +603,7 @@ class DockerModule {
             
             // We want to find the *last* timestamp in this chunk.
             const lines = chunk.split('\n');
+            const tz = moment.tz.guess();
             
             // Iterate backwards
             for (let i = lines.length - 1; i >= 0; i--) {
@@ -612,12 +613,11 @@ class DockerModule {
                 const match = line.match(timeRegex);
                 
                 if (match) {
-                     const dateString = match[1];
-                     const tz = moment.tz.guess();
-                     const ts = moment.tz(dateString, "MM/DD/YYYY, hh:mm:ss A", tz).valueOf();
-                     if (!isNaN(ts)) {
-                         return ts;
-                     }
+                    const dateString = match[1];
+                    const ts = moment.tz(dateString, "MM/DD/YYYY, hh:mm:ss A", tz).valueOf();
+                    if (!isNaN(ts)) {
+                        return ts;
+                    }
                 }
             }
 
