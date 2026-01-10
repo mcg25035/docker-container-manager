@@ -626,6 +626,18 @@ class DockerModule {
         
         return null;
     }
+/**
+     * Read the signature of the file header (used to determine if the file has been truncated)
+     * @param {fs.FileHandle} fileHandle
+     * @returns {Promise<string>}
+     */
+    async #getFileHeaderSignature(fileHandle) {
+        const buffer = Buffer.alloc(64); // Read the first 64 bytes as the signature
+        const { bytesRead } = await fileHandle.read(buffer, 0, 64, 0);
+        if (bytesRead === 0) return '';
+        // Convert to base64 or string storage is fine, here using hex to avoid newline issues affecting JSON
+        return buffer.slice(0, bytesRead).toString('hex');
+    }
 
     /**
      * Get start and end time of a log file, utilising caching.
@@ -643,7 +655,14 @@ class DockerModule {
             return { start: null, end: null };
         }
 
-        let cache = { start: null, end: null };
+        let cache = { 
+            start: null, 
+            end: null, 
+            size: 0, 
+            inode: 0,      // Check if file entity has changed
+            headerSig: ''  // Check if file header signature has changed
+        };
+
         try {
             if (fs.existsSync(cacheFilePath)) {
                 const cacheContent = await fs.promises.readFile(cacheFilePath, 'utf-8');
@@ -657,7 +676,7 @@ class DockerModule {
 
         // Static files (rotated): if we have cache, return it.
         if (!isLogFile && cache.start != null && cache.end != null) {
-            return cache;
+            return { start: cache.start, end: cache.end };
         }
 
         let fileHandle = null;
@@ -665,32 +684,60 @@ class DockerModule {
             fileHandle = await fs.promises.open(logFilePath, 'r');
             const stats = await fileHandle.stat();
             const fileSize = stats.size;
+            const inode = stats.ino;
+
+            // Get signature of file header
+            const currentHeaderSig = await this.#getFileHeaderSignature(fileHandle);
 
             let needsStart = cache.start == null;
             let needsEnd = cache.end == null;
 
             if (isLogFile) {
-                // If live log, check size to see if we need to update
-                if (fileSize !== cache.size) {
-                    needsEnd = true; // Size changed, likely new logs -> update end
-                    
-                    if (cache.size && fileSize < cache.size) {
-                         // Rotated (shrunk) -> re-fetch start
-                         needsStart = true;
-                         cache.start = null;
-                    }
+                let fileRotated = false;
+
+                // Check 1: Inode changed (for mv/create type rotation)
+                if (cache.inode && cache.inode !== inode) {
+                    fileRotated = true;
+                }
+
+                // Check 2: File size decreased (for truncate before growing back)
+                if (!fileRotated && cache.size && fileSize < cache.size) {
+                    fileRotated = true;
+                }
+
+                // Check 3: File header signature changed (for truncate and growing back)
+                if (!fileRotated && cache.headerSig && currentHeaderSig !== cache.headerSig) {
+                    fileRotated = true;
+                }
+
+                if (fileRotated) {
+                    // File rotated, invalidate old cache
+                    needsStart = true;
+                    cache.start = null;
+                    // If rotated file is still empty, HeaderSig may be empty string, that's fine
+                }
+
+                // Update End time if file size changed or rotated
+                if (fileRotated || fileSize !== cache.size) {
+                    needsEnd = true;
                     cache.size = fileSize;
+                    cache.inode = inode;
+                    cache.headerSig = currentHeaderSig;
                 }
             }
 
             if (!needsStart && !needsEnd) {
-                return cache;
+                // No changes, return cached values
+                return { start: cache.start, end: cache.end };
             }
 
             if (needsStart) {
                 const startTs = await this.#findFirstTimestamp(fileHandle, fileSize);
                 if (startTs !== null) {
                     cache.start = startTs;
+                } else {
+                    // If file is empty or no timestamp found, reset
+                    cache.start = null;
                 }
             }
 
@@ -702,11 +749,17 @@ class DockerModule {
             }
 
             // Write cache back
-            const cacheToSave = { ...cache };
-            if (isLogFile) {
-                delete cacheToSave.end;
-            }
-
+            const cacheToSave = { 
+                start: cache.start, 
+                end: isLogFile ? null : cache.end, 
+                size: cache.size,
+                inode: cache.inode,
+                headerSig: cache.headerSig
+            };
+            
+            // For log files, we mainly rely on memory state to determine needsEnd,
+            // but write cache to disk for cross-process or restart acceleration.
+            
             await fs.promises.writeFile(cacheFilePath, JSON.stringify(cacheToSave), 'utf-8');
 
         } catch (error) {
@@ -715,7 +768,7 @@ class DockerModule {
             if (fileHandle) await fileHandle.close();
         }
 
-        return cache;
+        return { start: cache.start, end: cache.end };
     }
 
     /**
