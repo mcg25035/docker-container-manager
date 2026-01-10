@@ -654,11 +654,9 @@ class DockerModule {
         }
 
         const isLogFile = logFileName.endsWith('.log');
-        const needsStart = cache.start === null || cache.start === undefined;
-        // We re-check end if it's missing OR if it is the active .log file
-        const needsEnd = (cache.end === null || cache.end === undefined) || isLogFile;
 
-        if (!needsStart && !needsEnd) {
+        // Static files (rotated): if we have cache, return it.
+        if (!isLogFile && cache.start != null && cache.end != null) {
             return cache;
         }
 
@@ -667,6 +665,27 @@ class DockerModule {
             fileHandle = await fs.promises.open(logFilePath, 'r');
             const stats = await fileHandle.stat();
             const fileSize = stats.size;
+
+            let needsStart = cache.start == null;
+            let needsEnd = cache.end == null;
+
+            if (isLogFile) {
+                // If live log, check size to see if we need to update
+                if (fileSize !== cache.size) {
+                    needsEnd = true; // Size changed, likely new logs -> update end
+                    
+                    if (cache.size && fileSize < cache.size) {
+                         // Rotated (shrunk) -> re-fetch start
+                         needsStart = true;
+                         cache.start = null;
+                    }
+                    cache.size = fileSize;
+                }
+            }
+
+            if (!needsStart && !needsEnd) {
+                return cache;
+            }
 
             if (needsStart) {
                 const startTs = await this.#findFirstTimestamp(fileHandle, fileSize);
