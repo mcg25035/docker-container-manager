@@ -69,8 +69,45 @@ const ServiceDetail: React.FC = () => {
   });
 
   useEffect(() => {
-    if (initialLogData) {
-      setConsoleLogs(initialLogData ?? []);
+    if (initialLogData && initialLogData.length > 0) {
+      setConsoleLogs(initialLogData);
+      setNextLineToFetch(0);
+
+      // Try to determine the time range of the initial chunk
+      const timeRegex = /^(\d{1,2}\/\d{1,2}\/\d{4}, \d{1,2}:\d{2}:\d{2} (?:AM|PM))/;
+      let start: Date | null = null;
+      let end: Date | null = null;
+
+      // Find first valid time
+      for (const line of initialLogData) {
+        const match = line.match(timeRegex);
+        if (match) {
+          const d = new Date(match[1]);
+          if (!isNaN(d.getTime())) {
+            start = d;
+            break;
+          }
+        }
+      }
+
+      // Find last valid time (iterate backwards)
+      for (let i = initialLogData.length - 1; i >= 0; i--) {
+        const match = initialLogData[i].match(timeRegex);
+        if (match) {
+          const d = new Date(match[1]);
+          if (!isNaN(d.getTime())) {
+            end = d;
+            break;
+          }
+        }
+      }
+
+      if (start && end) {
+        setTimeRange([start, end]);
+      }
+    } else if (initialLogData) {
+      // Empty logs
+      setConsoleLogs([]);
       setNextLineToFetch(0);
     }
   }, [initialLogData]);
