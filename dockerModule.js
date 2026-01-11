@@ -3,6 +3,7 @@ const { promisify } = require('util');
 const execAsync = promisify(exec);
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const tail = require('tail').Tail;
 const moment = require('moment-timezone');
 const { parse, stringify } = require('envfile');
@@ -400,10 +401,67 @@ class DockerModule {
         let targetDir = path.join(this.#containerDir, serviceName, 'logs');
         if (!fs.existsSync(targetDir)) return [];
 
-        let logFiles = await fs.promises.readdir(targetDir);
-        logFiles = logFiles.filter(file => 
-            fs.statSync(path.join(targetDir, file)).isFile() && !file.endsWith('.timecache')
-        );
+        let allFiles = [];
+        try {
+            allFiles = await fs.promises.readdir(targetDir);
+        } catch (e) {
+            return [];
+        }
+
+        const logFiles = [];
+        const activeInodes = new Set();
+        const cacheFiles = [];
+
+        // 1. Classify files & Collect Active Inodes
+        for (const file of allFiles) {
+            const filePath = path.join(targetDir, file);
+            try {
+                const stats = fs.statSync(filePath);
+                if (stats.isFile()) {
+                    if (file.endsWith('.timecache')) {
+                        cacheFiles.push(file);
+                    } else {
+                        logFiles.push(file);
+                        activeInodes.add(stats.ino);
+                    }
+                }
+            } catch (e) {
+                // Ignore (file might be deleted during iteration)
+            }
+        }
+
+        // 2. Refresh Cache: Delete orphans
+        for (const cacheFile of cacheFiles) {
+            let shouldDelete = false;
+
+            if (cacheFile.endsWith('.log.timecache')) {
+                // Strategy 1: Fixed filename for .log
+                // Logic: If active log file with that name doesn't exist -> Delete
+                const originalLogName = cacheFile.replace('.timecache', '');
+                if (!logFiles.includes(originalLogName)) {
+                    shouldDelete = true;
+                }
+            } else {
+                // Strategy 2: Inode-Hash for rotated files
+                // Logic: If no current file exists with that Inode -> Delete
+                const match = cacheFile.match(/^(\d+)-/);
+                if (match) {
+                    const inode = parseInt(match[1], 10);
+                    if (!activeInodes.has(inode)) {
+                        shouldDelete = true;
+                    }
+                }
+            }
+
+            if (shouldDelete) {
+                try {
+                    await fs.promises.unlink(path.join(targetDir, cacheFile));
+                } catch (e) {
+                    // Ignore erase error
+                }
+            }
+        }
+
         return logFiles;
     }
 
@@ -639,6 +697,125 @@ class DockerModule {
         return buffer.slice(0, bytesRead).toString('hex');
     }
 
+
+    /**
+     * Determines the cache file path based on the file type.
+     * Uses a specific filename for live .log files and a hash-based name for rotated files.
+     * @param {string} serviceName 
+     * @param {string} logFileName 
+     * @param {number} inode 
+     * @param {string} headerSig 
+     * @returns {Promise<string>} Absolute path to the timecache file
+     */
+    async #resolveCachePath(serviceName, logFileName, inode, headerSig) {
+        const isLogFile = logFileName.endsWith('.log');
+        if (isLogFile) {
+            return path.join(this.#containerDir, serviceName, 'logs', `${logFileName}.timecache`);
+        } else {
+            const sigHash = crypto.createHash('sha256').update(headerSig).digest('hex');
+            return path.join(this.#containerDir, serviceName, 'logs', `${inode}-${sigHash}.timecache`);
+        }
+    }
+
+    /**
+     * Reads and parses the timecache file. Returns a default object if missing/invalid.
+     * @param {string} cacheFilePath 
+     * @returns {Promise<{start: number|null, end: number|null, size: number, inode: number, headerSig: string}>}
+     */
+    async #readTimeCache(cacheFilePath) {
+        try {
+            if (fs.existsSync(cacheFilePath)) {
+                const cacheContent = await fs.promises.readFile(cacheFilePath, 'utf-8');
+                return JSON.parse(cacheContent);
+            }
+        } catch (e) {
+            // Ignore errors
+        }
+        return { start: null, end: null, size: 0, inode: 0, headerSig: '' };
+    }
+
+    /**
+     * Validates if the current cache matches the file on disk.
+     * Checks for rotation (inode change) and appending (size change).
+     * @param {Object} cache 
+     * @param {number} inode 
+     * @param {number} fileSize 
+     * @param {string} headerSig 
+     * @param {string} logFileName 
+     * @returns {{isValid: boolean, needsStart: boolean, needsEnd: boolean, cache: Object}}
+     */
+    #validateTimeCache(cache, inode, fileSize, headerSig, logFileName) {
+        const isLogFile = logFileName.endsWith('.log');
+        let needsStart = cache.start == null;
+        let needsEnd = cache.end == null;
+        let updatedCache = { ...cache };
+
+        if (isLogFile) {
+            // Check if file was rotated (Inode changed)
+            if (cache.inode && cache.inode !== inode) {
+                // Inode changed -> File rotated. Reset cache.
+                updatedCache = { start: null, end: null, size: 0, inode: inode, headerSig: headerSig };
+                needsStart = true;
+                needsEnd = true;
+            } else {
+                // Inode match. Check if size changed (appended).
+                if (fileSize !== cache.size) {
+                    needsEnd = true;
+                }
+                updatedCache.size = fileSize;
+                updatedCache.inode = inode; // Ensure inode matches current
+            }
+        } else {
+            // Static file: if cache exists (hash match), it is valid.
+            if (cache.start != null && cache.end != null) {
+                return { isValid: true, needsStart: false, needsEnd: false, cache };
+            }
+        }
+
+        return { isValid: (!needsStart && !needsEnd), needsStart, needsEnd, cache: updatedCache };
+    }
+
+    /**
+     * Scans the file for missing start/end timestamps and updates the cache object.
+     * @param {fs.FileHandle} fileHandle 
+     * @param {number} fileSize 
+     * @param {Object} cache - Will be mutated with new timestamps
+     * @param {boolean} needsStart 
+     * @param {boolean} needsEnd 
+     */
+    async #calculateMissingTimeRanges(fileHandle, fileSize, cache, needsStart, needsEnd) {
+        if (needsStart) {
+            const startTs = await this.#findFirstTimestamp(fileHandle, fileSize);
+            if (startTs !== null) {
+                cache.start = startTs;
+            }
+        }
+
+        if (needsEnd) {
+            const endTs = await this.#findLastTimestamp(fileHandle, fileSize);
+            if (endTs !== null) {
+                cache.end = endTs;
+            }
+        }
+    }
+
+    /**
+     * Persists the cache object to disk.
+     * @param {string} cacheFilePath 
+     * @param {Object} cache 
+     * @param {boolean} isLogFile 
+     */
+    async #saveTimeCache(cacheFilePath, cache, isLogFile) {
+        const cacheToSave = {
+            start: cache.start,
+            end: cache.end,
+            size: cache.size,
+            inode: cache.inode,
+            headerSig: cache.headerSig
+        };
+        await fs.promises.writeFile(cacheFilePath, JSON.stringify(cacheToSave), 'utf-8');
+    }
+
     /**
      * Get start and end time of a log file, utilising caching.
      * @param {string} serviceName 
@@ -649,34 +826,9 @@ class DockerModule {
         if (!(await this.#checkServiceExists(serviceName))) return { start: null, end: null };
 
         const logFilePath = path.join(this.#containerDir, serviceName, 'logs', logFileName);
-        const cacheFilePath = path.join(this.#containerDir, serviceName, 'logs', `${logFileName}.timecache`);
-
+        
         if (!fs.existsSync(logFilePath)) {
             return { start: null, end: null };
-        }
-
-        let cache = { 
-            start: null, 
-            end: null, 
-            size: 0, 
-            inode: 0,      // Check if file entity has changed
-            headerSig: ''  // Check if file header signature has changed
-        };
-
-        try {
-            if (fs.existsSync(cacheFilePath)) {
-                const cacheContent = await fs.promises.readFile(cacheFilePath, 'utf-8');
-                cache = JSON.parse(cacheContent);
-            }
-        } catch (e) {
-            console.warn('Failed to read timecache:', e.message);
-        }
-
-        const isLogFile = logFileName.endsWith('.log');
-
-        // Static files (rotated): if we have cache, return it.
-        if (!isLogFile && cache.start != null && cache.end != null) {
-            return { start: cache.start, end: cache.end };
         }
 
         let fileHandle = null;
@@ -685,90 +837,30 @@ class DockerModule {
             const stats = await fileHandle.stat();
             const fileSize = stats.size;
             const inode = stats.ino;
+            const headerSig = await this.#getFileHeaderSignature(fileHandle);
 
-            // Get signature of file header
-            const currentHeaderSig = await this.#getFileHeaderSignature(fileHandle);
+            const cacheFilePath = await this.#resolveCachePath(serviceName, logFileName, inode, headerSig);
+            let cache = await this.#readTimeCache(cacheFilePath);
 
-            let needsStart = cache.start == null;
-            let needsEnd = cache.end == null;
-
-            if (isLogFile) {
-                let fileRotated = false;
-
-                // Check 1: Inode changed (for mv/create type rotation)
-                if (cache.inode && cache.inode !== inode) {
-                    fileRotated = true;
-                }
-
-                // Check 2: File size decreased (for truncate before growing back)
-                if (!fileRotated && cache.size && fileSize < cache.size) {
-                    fileRotated = true;
-                }
-
-                // Check 3: File header signature changed (for truncate and growing back)
-                if (!fileRotated && cache.headerSig && currentHeaderSig !== cache.headerSig) {
-                    fileRotated = true;
-                }
-
-                if (fileRotated) {
-                    // File rotated, invalidate old cache
-                    needsStart = true;
-                    cache.start = null;
-                    // If rotated file is still empty, HeaderSig may be empty string, that's fine
-                }
-
-                // Update End time if file size changed or rotated
-                if (fileRotated || fileSize !== cache.size) {
-                    needsEnd = true;
-                    cache.size = fileSize;
-                    cache.inode = inode;
-                    cache.headerSig = currentHeaderSig;
-                }
-            }
-
-            if (!needsStart && !needsEnd) {
-                // No changes, return cached values
-                return { start: cache.start, end: cache.end };
-            }
-
-            if (needsStart) {
-                const startTs = await this.#findFirstTimestamp(fileHandle, fileSize);
-                if (startTs !== null) {
-                    cache.start = startTs;
-                } else {
-                    // If file is empty or no timestamp found, reset
-                    cache.start = null;
-                }
-            }
-
-            if (needsEnd) {
-                const endTs = await this.#findLastTimestamp(fileHandle, fileSize);
-                if (endTs !== null) {
-                    cache.end = endTs;
-                }
-            }
-
-            // Write cache back
-            const cacheToSave = { 
-                start: cache.start, 
-                end: isLogFile ? null : cache.end, 
-                size: cache.size,
-                inode: cache.inode,
-                headerSig: cache.headerSig
-            };
+            const validation = this.#validateTimeCache(cache, inode, fileSize, headerSig, logFileName);
             
-            // For log files, we mainly rely on memory state to determine needsEnd,
-            // but write cache to disk for cross-process or restart acceleration.
-            
-            await fs.promises.writeFile(cacheFilePath, JSON.stringify(cacheToSave), 'utf-8');
+            // If fully valid, return immediately
+            if (validation.isValid) {
+                return { start: validation.cache.start, end: validation.cache.end };
+            }
+
+            cache = validation.cache;
+            await this.#calculateMissingTimeRanges(fileHandle, fileSize, cache, validation.needsStart, validation.needsEnd);
+            await this.#saveTimeCache(cacheFilePath, cache, logFileName.endsWith('.log'));
+
+            return { start: cache.start, end: cache.end };
 
         } catch (error) {
             console.error(`Error calculating time range for ${logFileName}:`, error);
+            return { start: null, end: null };
         } finally {
             if (fileHandle) await fileHandle.close();
         }
-
-        return { start: cache.start, end: cache.end };
     }
 
     /**
