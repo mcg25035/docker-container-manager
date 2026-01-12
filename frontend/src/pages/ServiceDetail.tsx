@@ -422,9 +422,13 @@ const ServiceDetail: React.FC = () => {
 
     // Determine "Max Time" of the group for group sorting
     // The first item is now the "freshest" thanks to the sort above
-    const maxTime = items.length > 0
-      ? ((items[0].data?.end) ? items[0].data.end : (Date.now() + 10000000))
-      : 0;
+    const firstItem = items.length > 0 ? items[0] : null;
+    const hasTime = firstItem && (firstItem.data?.start != null || firstItem.data?.end != null);
+
+    let maxTime = 0;
+    if (hasTime) {
+      maxTime = (firstItem.data?.end) ? firstItem.data.end : (Date.now() + 10000000);
+    }
 
     return { prefix, items, maxTime };
   });
