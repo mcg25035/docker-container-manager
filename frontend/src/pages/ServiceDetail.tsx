@@ -372,51 +372,89 @@ const ServiceDetail: React.FC = () => {
     };
   });
 
-  const sortedLogData = [...combinedLogData].sort((a, b) => {
-    const aData = a.data;
-    const bData = b.data;
-
-    const aHasStart = aData?.start !== null && aData?.start !== undefined;
-    const aHasEnd = aData?.end !== null && aData?.end !== undefined;
-    const bHasStart = bData?.start !== null && bData?.start !== undefined;
-    const bHasEnd = bData?.end !== null && bData?.end !== undefined;
-
-    // Rule 0: Files with NO time data (neither start nor end) go to the bottom
-    const aHasAnyTime = aHasStart || aHasEnd;
-    const bHasAnyTime = bHasStart || bHasEnd;
-
-    if (aHasAnyTime && !bHasAnyTime) return -1;
-    if (!aHasAnyTime && bHasAnyTime) return 1;
-    if (!aHasAnyTime && !bHasAnyTime) return 0; // Both unknown, keep original order
-
-    // Calculate effective end time.
-    // If no end time (active), assume it's "Future" relative to closed logs.
-    const now = Date.now();
-
-    const aEnd = aHasEnd ? aData!.end! : (now + 1000000);
-    const bEnd = bHasEnd ? bData!.end! : (now + 1000000);
-
-    // Sort by end time descending (closest to now/future first)
-    if (aEnd !== bEnd) {
-      return bEnd - aEnd;
+  // Helper to parse log filename
+  const parseLogName = (filename: string) => {
+    // Regex matches "prefix-YYYY-MM-DD..." pattern
+    // e.g., app-2026-01-09_20-48-51.log -> prefix: "app"
+    // e.g., app-err-2026... -> prefix: "app-err"
+    const match = filename.match(/^(.*?)-\d{4}-\d{2}-\d{2}.*\.log(?:\.\d+)?$/);
+    if (match) {
+      return { prefix: match[1], isTimestamped: true };
     }
+    return { prefix: filename, isTimestamped: false };
+  };
 
-    // Tie breaker: start time descending (younger one first)
-    const aStart = aData?.start || 0;
-    const bStart = bData?.start || 0;
-    return bStart - aStart;
+  // Group logs by prefix
+  const groups: Record<string, typeof combinedLogData> = {};
+  combinedLogData.forEach(item => {
+    const { prefix } = parseLogName(item.file);
+    if (!groups[prefix]) {
+      groups[prefix] = [];
+    }
+    groups[prefix].push(item);
   });
 
-  const logFileOptions = sortedLogData.map((item) => {
-    const { file, data } = item;
-    let label = file;
-    if (data && (data.start || data.end)) {
-      const start = data.start ? new Date(data.start).toLocaleString() : '...';
-      const end = data.end ? new Date(data.end).toLocaleString() : '...';
-      label = `${file} (${start} - ${end})`;
-    }
-    return { label, value: file };
+  // Sort items within groups and sort groups themselves
+  const groupData = Object.entries(groups).map(([prefix, items]) => {
+    // Sort items by end time descending (Active/Future -> Newest -> Oldest)
+    items.sort((a, b) => {
+      const aData = a.data;
+      const bData = b.data;
+
+      // Rule 0: Files with NO time data go to bottom
+      const aHasTime = (aData?.start != null || aData?.end != null);
+      const bHasTime = (bData?.start != null || bData?.end != null);
+      if (aHasTime && !bHasTime) return -1;
+      if (!aHasTime && bHasTime) return 1;
+      if (!aHasTime && !bHasTime) return 0;
+
+      const now = Date.now();
+      // If end is null/undefined but start exists, it's likely active -> treat as future
+      const aEnd = (aData?.end) ? aData.end : (now + 10000000);
+      const bEnd = (bData?.end) ? bData.end : (now + 10000000);
+
+      if (aEnd !== bEnd) return bEnd - aEnd;
+
+      const aStart = aData?.start || 0;
+      const bStart = bData?.start || 0;
+      return bStart - aStart;
+    });
+
+    // Determine "Max Time" of the group for group sorting
+    // The first item is now the "freshest" thanks to the sort above
+    const maxTime = items.length > 0
+      ? ((items[0].data?.end) ? items[0].data.end : (Date.now() + 10000000))
+      : 0;
+
+    return { prefix, items, maxTime };
   });
+
+  // Sort groups by their freshest content (descending)
+  groupData.sort((a, b) => b.maxTime - a.maxTime);
+
+  // Generate Options with OptGroup structure
+  const logFileOptions = groupData.map(group => ({
+    label: group.prefix,
+    options: group.items.map(item => {
+      const { file, data } = item;
+      const { prefix, isTimestamped } = parseLogName(file);
+      let label = file;
+
+      if (data && (data.start || data.end)) {
+        const start = data.start ? new Date(data.start).toLocaleString() : '...';
+        const end = data.end ? new Date(data.end).toLocaleString() : '...';
+
+        if (isTimestamped) {
+          // User requested format: "app (Start - End)"
+          label = `${prefix} (${start} - ${end})`;
+        } else {
+          label = `${file} (${start} - ${end})`;
+        }
+      }
+
+      return { label, value: file };
+    })
+  }));
 
   const selectedLogFileIndex = logFiles.findIndex(f => f === selectedLogFile);
   const selectedLogTimeRange = selectedLogFileIndex >= 0 ? logFileTimeRanges[selectedLogFileIndex]?.data : null;
